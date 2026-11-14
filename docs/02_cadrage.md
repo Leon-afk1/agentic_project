@@ -414,6 +414,17 @@ Choix technique : SDK officiel `google-genai` derrière l'interface `LLMClient`,
 - **Clé Gemini vérifiée** : `oabench llm check` réussit avec `gemini-3.5-flash-lite` (appel d'outil correct, 2 requêtes en 2,1 s, 224 tokens en entrée et 18 en sortie). L'appel d'outils réel, noté « non vérifié » plus haut, l'est donc maintenant.
 - **Serveur MCP essayé dans Claude Desktop par Léon** : la question sur les pistes cyclables à Strasbourg renvoie la fiche `amg_cycl_bnac` avec emprise, licence, colonnes et une alternative. Le critère du MVP « fonctionne dans Claude Desktop avec au moins 4 outils testés » est rempli pour deux outils utilisés en conditions réelles (`search_datasets`, `get_dataset_metadata`) ; `list_themes` et `list_organizations` ne l'ont été que par les tests.
 
+**15/11/2026, boucle de l'agent (J5) :**
+- **Quotas lus par Léon** pour `gemini-3.5-flash-lite` et `gemini-3.1-flash-lite` : 15 requêtes par minute, 250 000 tokens par minute, 500 requêtes par jour. Les autres modèles sont limités à 20 requêtes par jour au plus.
+- **Conséquences** : un limiteur espace les appels de 4,5 s ; toutes les réponses sont mises en cache (clé = modèle, consigne, messages, outils), donc relancer une évaluation ne consomme rien. Une configuration complète (66 questions, 8 appels au plus, soit 528) dépasse de peu le quota journalier : elle se fait en deux jours, le cache reprenant où l'on s'est arrêté.
+- **Pas de mélange de modèles dans une même configuration** : cela rendrait le résultat ininterprétable. `gemini-3.1-flash-lite` devient une seconde configuration (comparaison de deux modèles), sur son propre quota. La « référence haute » `gemini-3.8-flash` est abandonnée : 20 requêtes par jour ne permettent pas 66 questions.
+- **Fin par appel d'outil** : l'agent conclut en appelant `submit_answer` (statut, message, jeux cités avec quatre vérifications et une preuve). Cela donne un critère d'arrêt explicite et une réponse vérifiable par programme.
+- **Dernière étape réservée à la réponse** (ajouté après un essai réel sur une question de développement) : sur « prix de l'immobilier à Reims », le modèle enchaînait les recherches jusqu'à la limite sans conclure. Au dernier appel autorisé, seul `submit_answer` est proposé. Après ce changement, la même question se termine par une abstention correcte.
+- **Durée mesurée hors attente du quota** : le délai de 90 s et les latences des traces excluent le temps passé à attendre le limiteur.
+- **Premiers essais réels** (deux questions de développement, non représentatifs) : 7 à 8 appels au modèle, 5 à 7 appels d'outils, environ 21 000 tokens en entrée, soit 0,0075 $ au tarif public par question. Le budget de 30 000 tokens est donc serré : l'historique est renvoyé en entier à chaque appel.
+- **Écart de protocole à signaler** : une question du jeu de test (`n46`) a été essayée à la main avant que le garde-fou n'existe. Aucun réglage n'a été fait à partir d'elle. Depuis, `oabench ask` refuse les questions de test sauf option explicite.
+- **Modèle simulé** : il sert uniquement aux tests automatiques des garde-fous (la CI n'a pas de clé). Tous les essais et toutes les mesures utilisent le vrai modèle.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

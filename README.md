@@ -28,7 +28,8 @@ Work in progress. What exists today:
 | LLM client (Google Gemini, tool calling) and API key handling | done; tool calling checked against the real API with `oabench llm check` |
 | Engines: portal search (as typed, and keywords only), BM25, multilingual embeddings on CPU, hybrid (rank fusion) | done, not yet scored |
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs, abstention rates | code done; no judgment yet, so no result |
-| Agent, full evaluation | not started |
+| Agent: bounded tool-calling loop through the MCP server, JSONL traces | done; tried by hand on two dev questions, not yet evaluated |
+| Evaluation of the agent, comparison table | not started (waiting for relevance judgments) |
 
 No result is reported here yet because none has been measured.
 
@@ -71,6 +72,25 @@ uv run oabench llm check            # 2 requests: checks the key and tool callin
 argument, and is never printed: the check reports only whether it is set and its length. A test
 fails if a file tracked by git contains something shaped like an API key.
 
+## Agent
+
+```bash
+uv run oabench ask "Où faire du vélo en sécurité à Strasbourg ?"
+uv run oabench trace show results/traces/example_dev_n07.jsonl
+```
+
+The agent plans, searches, opens records and checks them (territory, period, granularity,
+format), then ends by calling a `submit_answer` tool: either datasets with reasons, or an explicit
+abstention. Hard limits: 8 model calls, 12 tool calls, 30,000 input tokens, 90 s, no identical
+call more than twice. The last allowed call can only deliver the answer. Every cited id is checked
+against what the tools really returned; an invented one is removed and counted.
+
+Each run writes a JSONL trace (plan, every model and tool call with duration, tokens and result
+size, stop reason, list-price cost). `results/traces/` holds one real example.
+
+Model: `gemini-3.5-flash-lite` on the free tier (15 requests per minute, 500 per day), behind a
+rate limiter and a response cache. `oabench ask` refuses questions of the frozen test split.
+
 ## Evaluation workflow
 
 ```bash
@@ -105,6 +125,10 @@ absolute path of your clone) and restart the application:
   }
 }
 ```
+
+Tried by hand in Claude Desktop on 15 Nov 2026 (all four tools):
+
+![Themes listed in Claude Desktop](docs/img/claude_desktop_themes.png)
 
 Search is lexical (BM25 written by hand, title and keywords weighted). It always returns its best
 matches, even for a question the catalog cannot answer: telling "nothing relevant" apart is the job
