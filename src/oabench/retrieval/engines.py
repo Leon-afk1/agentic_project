@@ -235,3 +235,28 @@ class EmbeddingEngine:
         scores = self._matrix @ vector
         order = np.argsort(-scores, kind="stable")[:k]
         return [(self._uuids[i], float(scores[i])) for i in order]
+
+
+class HybridEngine:
+    """Reciprocal rank fusion of several engines (Cormack et al., 2009).
+
+    Each engine votes with 1 / (k + rank) for the records it returns; votes are
+    summed. Only ranks are used, so engines whose scores live on different
+    scales (BM25 and cosine similarity) can be combined without calibration.
+    The fused score is rank-based: it is not a confidence and is not used to
+    decide abstention.
+    """
+
+    name = "hybrid"
+    RRF_K = 60  # the constant of the original paper; not tuned here
+
+    def __init__(self, engines: Sequence[Engine], *, depth: int = 50) -> None:
+        self._engines = list(engines)
+        self._depth = depth
+
+    def search(self, query: str, k: int) -> Ranking:
+        fused: dict[str, float] = {}
+        for engine in self._engines:
+            for rank, (uuid, _score) in enumerate(engine.search(query, self._depth), 1):
+                fused[uuid] = fused.get(uuid, 0.0) + 1.0 / (self.RRF_K + rank)
+        return sorted(fused.items(), key=lambda item: (-item[1], item[0]))[:k]
