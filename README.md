@@ -22,7 +22,8 @@ Work in progress. What exists today:
 | Catalog exploration (`docs/01_exploration.md`, in French) | done, 12 Nov 2026 |
 | Project scope and evaluation protocol (`docs/02_cadrage.md`, in French) | done |
 | Repository skeleton, lint, type check, tests, CI | done |
-| Portal client, MCP server, golden set, baselines, agent, evaluation | not started |
+| Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
+| MCP server, golden set, baselines, agent, evaluation | not started |
 
 No result is reported here yet because none has been measured.
 
@@ -39,6 +40,17 @@ uv run oabench --version
 ```
 
 No API key is needed for the tests.
+
+To build the catalog snapshot (17 requests to the portal, one per second, then served from the
+local cache for 24 hours):
+
+```bash
+uv run oabench snapshot
+uv run oabench snapshot --verify
+```
+
+On 12 Nov 2026 this kept 6,867 datasets out of 8,316 catalog records (maps and services are left
+out). The snapshot is written to `data/snapshot/` and is not committed.
 
 ## Ground rules
 
