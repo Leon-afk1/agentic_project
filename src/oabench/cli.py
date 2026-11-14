@@ -10,6 +10,7 @@ from pathlib import Path
 from oabench import __version__
 from oabench.portal.http import CachedClient, PortalError, RateLimiter, ResponseCache
 from oabench.portal.search import SEARCH_URL, iter_hits
+from oabench.retrieval.engines import Engine
 from oabench.snapshot.build import build_snapshot, load_manifest, verify_snapshot
 
 MIN_INTERVAL_S = 1.0
@@ -47,7 +48,44 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("question")
     add.add_argument("--level", required=True, choices=["easy", "medium", "hard", "no_answer"])
     actions.add_parser("split", help="assign validated questions to dev or test (never reshuffles)")
+    pool = actions.add_parser(
+        "pool", help="merge the top results of every engine for each question"
+    )
+    pool.add_argument("--engines", default="bm25,portal,embeddings")
+    actions.add_parser("judge", help="grade pooled candidates one by one")
+
+    evaluate = commands.add_parser("eval", help="score the engines on the judged questions")
+    evaluate.add_argument("--golden", type=Path, default=Path("data/golden"))
+    evaluate.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
+    evaluate.add_argument("--engines", default="bm25,portal,embeddings")
+    evaluate.add_argument("--split", choices=["dev", "test", "all"], default="dev")
+    evaluate.add_argument("--lenient", action="store_true", help="count partially relevant too")
     return parser
+
+
+def make_engines(names: str, snapshot: Path, cache_dir: Path = Path(".cache")) -> list[Engine]:
+    from oabench.catalog import Catalog
+    from oabench.retrieval.engines import BM25Engine, EmbeddingEngine, PortalEngine
+    from oabench.snapshot.build import load_snapshot
+
+    datasets = load_snapshot(snapshot)
+    engines: list[Engine] = []
+    for name in [n.strip() for n in names.split(",") if n.strip()]:
+        if name == "bm25":
+            engines.append(BM25Engine(Catalog(datasets)))
+        elif name == "portal":
+            client = CachedClient(
+                ResponseCache(cache_dir / "http.sqlite"), RateLimiter(MIN_INTERVAL_S), ttl_s=None
+            )
+            engines.append(PortalEngine(client, {d.uuid for d in datasets}))
+        elif name == "embeddings":
+            from oabench.retrieval.engines import FastEmbedEmbedder
+
+            cache = cache_dir / "embeddings.npz"
+            engines.append(EmbeddingEngine(datasets, FastEmbedEmbedder(), cache=cache))
+        else:
+            raise SystemExit(f"unknown engine '{name}' (choose among bm25, portal, embeddings)")
+    return engines
 
 
 def run_snapshot(args: argparse.Namespace) -> int:
@@ -108,8 +146,58 @@ def run_golden(args: argparse.Namespace) -> int:
         print(f"added [{question.id}] {question.question}")
     elif args.action == "split":
         save_questions(args.file, assign_split(load_questions(args.file)))
+    elif args.action in ("pool", "judge"):
+        from oabench.eval.pool import (
+            JUDGMENTS_FILE,
+            POOL_FILE,
+            build_pool,
+            judge,
+            load_judgments,
+            load_pool,
+            pending,
+            save_pool,
+        )
+
+        pool_path = args.file.parent / POOL_FILE
+        judgments_path = args.file.parent / JUDGMENTS_FILE
+        if args.action == "pool":
+            engines = make_engines(args.engines, args.snapshot)
+            pool = build_pool(load_questions(args.file), engines, existing=load_pool(pool_path))
+            save_pool(pool_path, pool)
+        else:
+            from oabench.catalog import Catalog
+            from oabench.snapshot.build import load_snapshot
+
+            catalog = Catalog(load_snapshot(args.snapshot))
+            judge(pool_path, judgments_path, load_questions(args.file), catalog)
+        pool = load_pool(pool_path)
+        left = len(pending(pool, load_judgments(judgments_path)))
+        print(f"pool   : {len(pool)} candidates, {left} still to judge")
     for section, counts in summary(load_questions(args.file)).items():
         print(f"{section:7}: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    return 0
+
+
+def run_eval(args: argparse.Namespace) -> int:
+    from oabench.eval.golden import QUESTIONS_FILE, load_questions
+    from oabench.eval.pool import JUDGMENTS_FILE, load_judgments, qrels
+    from oabench.eval.report import evaluate_engine, format_comparisons, format_table
+
+    questions = [
+        q
+        for q in load_questions(args.golden / QUESTIONS_FILE)
+        if args.split == "all" or q.split == args.split
+    ]
+    grades = qrels(load_judgments(args.golden / JUDGMENTS_FILE))
+    min_grade = 1 if args.lenient else 2
+    reports = [
+        evaluate_engine(engine, questions, grades, min_grade=min_grade)
+        for engine in make_engines(args.engines, args.snapshot)
+    ]
+    relevance = "lenient (grade >= 1)" if args.lenient else "strict (grade 2)"
+    print(f"split={args.split}  relevance={relevance}")
+    print(format_table(reports))
+    print(format_comparisons(reports, "bm25"))
     return 0
 
 
@@ -121,6 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_mcp(args)
     if args.command == "golden":
         return run_golden(args)
+    if args.command == "eval":
+        return run_eval(args)
     return 0
 
 
