@@ -81,6 +81,16 @@ def from_response(response: Any) -> LLMResponse:
     )
 
 
+def _dump_raw(raw: Any) -> str:
+    return str(raw.model_dump_json(exclude_none=True))
+
+
+def _load_raw(text: str) -> Any:
+    from google.genai import types
+
+    return types.Content.model_validate_json(text)
+
+
 class GeminiClient:
     def __init__(self, api_key: str, model: str = DEFAULT_MODEL, *, temperature: float = 0.0):
         from google import genai
@@ -88,6 +98,10 @@ class GeminiClient:
         self.model = model
         self._temperature = temperature
         self._client = genai.Client(api_key=api_key)
+
+    # Used by the response cache to store and restore the model's own turn.
+    dump_raw = staticmethod(_dump_raw)
+    load_raw = staticmethod(_load_raw)
 
     def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
         from google.genai import errors, types

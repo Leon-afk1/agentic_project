@@ -53,6 +53,7 @@ class LLMResponse:
     input_tokens: int
     output_tokens: int
     raw: Any = None
+    cached: bool = False
 
     def as_message(self) -> Message:
         return Message("assistant", text=self.text, tool_calls=self.tool_calls, raw=self.raw)
