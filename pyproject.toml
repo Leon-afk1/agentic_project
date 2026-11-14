@@ -6,7 +6,10 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Léon Morales" }]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+]
 
 [project.scripts]
 oabench = "oabench.cli:main"
