@@ -406,6 +406,14 @@ Choix technique : SDK officiel `google-genai` derrière l'interface `LLMClient`,
 
 **Questions de Léon** : 9 questions ajoutées le 15/11/2026 (`n38` à `n46`), marquées `annotator` et validées. Les 57 questions proposées attendent toujours leur relecture ; le découpage développement/test ne sera figé qu'une fois toutes les questions validées, pour que la répartition par niveau soit juste.
 
+**15/11/2026, jeu de référence figé :**
+- **66 questions validées par Léon** (relecture sur GitHub, `m08` corrigée : Haute-Marne et non Lorraine). Niveaux : 18 faciles, 27 moyennes, 9 difficiles, 12 sans réponse. Sources : 37 besoins, 20 fiches masquées, 9 de Léon (rédigées sans consulter le catalogue, formulation aidée par Gemini).
+- **Découpage figé** : 22 de développement, 44 de test, stratifié par niveau. Il ne sera plus recalculé.
+- **Mise en commun réelle** : 1 146 candidats (356 pour le développement, 790 pour le test), médiane de 17 par question. Guide de jugement : `docs/03_guide_jugement.md`.
+- **Recherche du portail sur les 66 questions validées** : aucun résultat pour 55 questions telle quelle, 53 en mots-clés. C'est un comptage de résultats vides, pas encore une mesure de pertinence.
+- **Clé Gemini vérifiée** : `oabench llm check` réussit avec `gemini-3.5-flash-lite` (appel d'outil correct, 2 requêtes en 2,1 s, 224 tokens en entrée et 18 en sortie). L'appel d'outils réel, noté « non vérifié » plus haut, l'est donc maintenant.
+- **Serveur MCP essayé dans Claude Desktop par Léon** : la question sur les pistes cyclables à Strasbourg renvoie la fiche `amg_cycl_bnac` avec emprise, licence, colonnes et une alternative. Le critère du MVP « fonctionne dans Claude Desktop avec au moins 4 outils testés » est rempli pour deux outils utilisés en conditions réelles (`search_datasets`, `get_dataset_metadata`) ; `list_themes` et `list_organizations` ne l'ont été que par les tests.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

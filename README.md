@@ -23,9 +23,9 @@ Work in progress. What exists today:
 | Project scope and evaluation protocol (`docs/02_cadrage.md`, in French) | done |
 | Repository skeleton, lint, type check, tests, CI | done |
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
-| Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
-| Golden set | 66 questions: 9 validated, 57 drafted and awaiting review; relevance judgments not started |
-| LLM client (Google Gemini, tool calling) and API key handling | code done; not yet run against the real API |
+| Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done; tested with the SDK client and by hand in Claude Desktop (15 Nov 2026) |
+| Golden set | 66 validated questions, split frozen (22 dev / 44 test); 1,146 pooled candidates, none judged yet |
+| LLM client (Google Gemini, tool calling) and API key handling | done; tool calling checked against the real API with `oabench llm check` |
 | Engines: portal search (as typed, and keywords only), BM25, multilingual embeddings on CPU, hybrid (rank fusion) | done, not yet scored |
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs, abstention rates | code done; no judgment yet, so no result |
 | Agent, full evaluation | not started |

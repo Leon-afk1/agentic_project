@@ -206,6 +206,11 @@ def run_golden(args: argparse.Namespace) -> int:
 
 
 def run_llm(args: argparse.Namespace) -> int:
+    import warnings
+
+    # The provider SDK triggers a harmless SyntaxWarning when first compiled.
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+
     from oabench.llm.check import run_check
     from oabench.llm.config import MissingKeyError, describe_key, load_env, require_key
     from oabench.llm.gemini import DEFAULT_MODEL, GeminiClient, cost_usd
