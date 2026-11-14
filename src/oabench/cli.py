@@ -57,6 +57,22 @@ def build_parser() -> argparse.ArgumentParser:
     pool.add_argument("--depth", type=int, default=10)
     actions.add_parser("judge", help="grade pooled candidates one by one")
 
+    ask = commands.add_parser("ask", help="ask the agent a question about the catalog")
+    ask.add_argument("question")
+    ask.add_argument("--model", default=None)
+    ask.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
+    ask.add_argument("--runs", type=Path, default=Path("runs"))
+    ask.add_argument("--no-cache", action="store_true", help="always call the model")
+    ask.add_argument("--quiet", action="store_true", help="print the answer only")
+    ask.add_argument(
+        "--allow-test", action="store_true", help="allow a question of the frozen test split"
+    )
+
+    trace = commands.add_parser("trace", help="inspect agent traces")
+    trace_actions = trace.add_subparsers(dest="action", required=True)
+    show = trace_actions.add_parser("show", help="print a trace file as readable text")
+    show.add_argument("file", type=Path)
+
     llm = commands.add_parser("llm", help="language-model provider utilities")
     llm_actions = llm.add_subparsers(dest="action", required=True)
     check = llm_actions.add_parser("check", help="verify the API key and tool calling")
@@ -205,6 +221,67 @@ def run_golden(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_ask(args: argparse.Namespace) -> int:
+    import asyncio
+    import logging
+    import re
+    import time
+    import warnings
+
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per request otherwise
+    from oabench.agent.runner import ask, build_llm
+    from oabench.catalog import Catalog
+
+    # Trying a test question by hand, then adjusting the agent, would leak the test set.
+    from oabench.eval.golden import load_questions
+    from oabench.llm.config import MissingKeyError, load_env, require_key
+    from oabench.llm.gemini import DEFAULT_MODEL
+    from oabench.snapshot.build import load_snapshot
+    from oabench.tracing.tracer import Tracer, render_trace
+
+    test_questions = {
+        q.question.strip().lower()
+        for q in load_questions(Path("data/golden/questions.jsonl"))
+        if q.split == "test"
+    }
+    if args.question.strip().lower() in test_questions and not args.allow_test:
+        print(
+            "error: this question belongs to the frozen test split. Use a dev question while "
+            "tuning, or pass --allow-test if you know what you are doing.",
+            file=sys.stderr,
+        )
+        return 1
+
+    load_env()
+    try:
+        key = require_key()
+    except MissingKeyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    model = args.model or DEFAULT_MODEL
+    slug = re.sub(r"[^a-z0-9]+", "-", args.question.lower())[:40].strip("-")
+    path = args.runs / f"{time.strftime('%Y%m%d-%H%M%S')}_{slug}.jsonl"
+    tracer = Tracer(path)
+    llm = build_llm(key, model, cache=None if args.no_cache else Path(".cache/llm.sqlite"))
+    result = asyncio.run(
+        ask(args.question, llm, Catalog(load_snapshot(args.snapshot)), tracer=tracer)
+    )
+    if args.quiet:
+        print(result.answer.message if result.answer else f"(stopped: {result.stop_reason})")
+    else:
+        print(render_trace(tracer.events))
+    print(f"trace: {path}")
+    return 0
+
+
+def run_trace(args: argparse.Namespace) -> int:
+    from oabench.tracing.tracer import load_trace, render_trace
+
+    print(render_trace(load_trace(args.file)))
+    return 0
+
+
 def run_llm(args: argparse.Namespace) -> int:
     import warnings
 
@@ -263,6 +340,11 @@ def run_eval(args: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # French text must survive a Windows console that defaults to a legacy code page.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
     if args.command == "snapshot":
         return run_snapshot(args)
@@ -270,6 +352,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_mcp(args)
     if args.command == "golden":
         return run_golden(args)
+    if args.command == "ask":
+        return run_ask(args)
+    if args.command == "trace":
+        return run_trace(args)
     if args.command == "llm":
         return run_llm(args)
     if args.command == "eval":
