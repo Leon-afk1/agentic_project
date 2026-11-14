@@ -33,6 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot.add_argument(
         "--verify", action="store_true", help="only check an existing snapshot against its manifest"
     )
+
+    mcp = commands.add_parser("mcp", help="serve the snapshot over MCP (stdio, read-only)")
+    mcp.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
     return parser
 
 
@@ -62,10 +65,28 @@ def run_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_mcp(args: argparse.Namespace) -> int:
+    # Imported here so that other commands do not pay for loading the MCP SDK.
+    from oabench.catalog import Catalog
+    from oabench.mcp_server.server import build_server
+    from oabench.snapshot.build import DATASETS_FILE, load_snapshot
+
+    if not (args.snapshot / DATASETS_FILE).exists():
+        print(
+            f"error: no snapshot in {args.snapshot}. Run `oabench snapshot` first.", file=sys.stderr
+        )
+        return 1
+    # stdout belongs to the MCP protocol from here on: nothing else may print to it.
+    build_server(Catalog(load_snapshot(args.snapshot))).run("stdio")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "snapshot":
         return run_snapshot(args)
+    if args.command == "mcp":
+        return run_mcp(args)
     return 0
 
 

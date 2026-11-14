@@ -23,7 +23,8 @@ Work in progress. What exists today:
 | Project scope and evaluation protocol (`docs/02_cadrage.md`, in French) | done |
 | Repository skeleton, lint, type check, tests, CI | done |
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
-| MCP server, golden set, baselines, agent, evaluation | not started |
+| Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
+| Golden set, baselines, agent, evaluation | not started |
 
 No result is reported here yet because none has been measured.
 
@@ -51,6 +52,33 @@ uv run oabench snapshot --verify
 
 On 12 Nov 2026 this kept 6,867 datasets out of 8,316 catalog records (maps and services are left
 out). The snapshot is written to `data/snapshot/` and is not committed.
+
+## MCP server
+
+Four read-only tools over the snapshot: `search_datasets`, `get_dataset_metadata`, `list_themes`,
+`list_organizations`. Outputs are bounded in size and contain no geometry and no contact details.
+
+```bash
+uv run oabench mcp
+```
+
+To use it from Claude Desktop, add this to `claude_desktop_config.json` (replace the path with the
+absolute path of your clone) and restart the application:
+
+```json
+{
+  "mcpServers": {
+    "oabench": {
+      "command": "uv",
+      "args": ["--directory", "/absolute/path/to/agentic_project", "run", "oabench", "mcp"]
+    }
+  }
+}
+```
+
+Search is lexical (BM25 written by hand, title and keywords weighted). It always returns its best
+matches, even for a question the catalog cannot answer: telling "nothing relevant" apart is the job
+of the agent and is measured in the evaluation, not assumed.
 
 ## Ground rules
 

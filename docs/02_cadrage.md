@@ -18,7 +18,7 @@ SDK Python officiel (`mcp`, API `FastMCP`). Deux transports : stdio pour Claude 
 
 | Outil | Entrées | Sortie | Jalon |
 |---|---|---|---|
-| `search_datasets` | `query`, `topic?`, `organization?`, `place?`, `limit` (≤ 10) | identifiant, titre, organisation, thématiques, 200 caractères de description, score | MVP |
+| `search_datasets` | `query`, `topic?`, `organization?`, `limit` (≤ 10) | identifiant, titre, organisation, thématiques, 200 caractères de description, score | MVP |
 | `get_dataset_metadata` | `uuid` | fiche nettoyée : description (≤ 1 500 caractères), mots-clés, dates, emprise, licence, formats, liens, colonnes si connues | MVP |
 | `list_themes` | aucune | les 19 catégories ISO avec libellé français et nombre de jeux | MVP |
 | `list_organizations` | `query?`, `limit` | organisations et nombre de jeux | MVP |
@@ -345,6 +345,15 @@ Ordre respecté : l'évaluation des baselines (J4) arrive avant l'agent (J5).
 | J13 Démo et mise en valeur | 22–28 févr. | Démo en ligne ou vidéo de 2 minutes ; livrables de la Phase 4 |
 
 Les deux semaines de fin d'année sont comptées à charge réduite.
+
+### 7.3 Ajustements en cours de route
+
+**14/11/2026, pendant J2 :**
+- **`place` retiré de `search_datasets`.** Un vrai filtre géographique demande le référentiel des communes (prévu avec le graphe, J9). En attendant, un paramètre `place` qui ne ferait qu'ajouter des mots à la requête aurait menti sur ce qu'il fait. Le lieu se met dans `query`.
+- **Le serveur MCP ne sert que l'extraction figée au MVP.** La source `live` n'est utile qu'à la baseline a0 (recherche du portail), qui n'a pas besoin de passer par MCP : elle sera un simple moteur dans le banc d'essai en J4.
+- **BM25 écrit dès J2** (il fallait un moteur derrière `search_datasets`), à la main, sans racinisation : minuscules, accents retirés, pluriels repliés. J4 est allégé d'autant ; la racinisation devient une variante à mesurer sur le jeu de développement, pas un acquis.
+- **SDK MCP en version 2** (`MCPServer` remplace `FastMCP`). Les exemples de `datagouv-mcp` et la plupart des tutoriels sont en version 1.
+- **Observation utile pour le protocole** : BM25 renvoie toujours ses meilleurs résultats, même pour « prix de l'immobilier à Reims » (score 12,7 contre 49,8 pour une vraie correspondance). Le seuil d'abstention des baselines devra être réglé sur le jeu de développement, comme prévu en §3.4.
 
 ## 8. Risques
 
