@@ -20,6 +20,9 @@ oabench = "oabench.cli:main"
 embeddings = [
     "fastembed>=0.9.1",
 ]
+llm = [
+    "google-genai>=3.3.0",
+]
 
 [dependency-groups]
 dev = [
@@ -55,5 +58,5 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [[tool.mypy.overrides]]
-module = ["fastembed"]
+module = ["fastembed", "google", "google.*"]
 ignore_missing_imports = true

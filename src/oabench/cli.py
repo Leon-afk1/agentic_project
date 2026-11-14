@@ -57,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
     pool.add_argument("--depth", type=int, default=10)
     actions.add_parser("judge", help="grade pooled candidates one by one")
 
+    llm = commands.add_parser("llm", help="language-model provider utilities")
+    llm_actions = llm.add_subparsers(dest="action", required=True)
+    check = llm_actions.add_parser("check", help="verify the API key and tool calling")
+    check.add_argument("--model", default=None)
+
     evaluate = commands.add_parser("eval", help="score the engines on the judged questions")
     evaluate.add_argument("--golden", type=Path, default=Path("data/golden"))
     evaluate.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
@@ -200,6 +205,31 @@ def run_golden(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_llm(args: argparse.Namespace) -> int:
+    from oabench.llm.check import run_check
+    from oabench.llm.config import MissingKeyError, describe_key, load_env, require_key
+    from oabench.llm.gemini import DEFAULT_MODEL, GeminiClient, cost_usd
+    from oabench.llm.types import LLMError
+
+    load_env()
+    print(describe_key())  # presence and length only, never the value
+    model = args.model or DEFAULT_MODEL
+    try:
+        result = run_check(GeminiClient(require_key(), model))
+    except (MissingKeyError, LLMError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    cost = cost_usd(model, result.input_tokens, result.output_tokens)
+    print(f"model          : {model}")
+    print(f"tool called    : {result.tool_called} (arguments correct: {result.arguments_ok})")
+    print(f"final answer   : {result.final_text.strip()[:80]!r}")
+    print(f"tokens         : {result.input_tokens} in, {result.output_tokens} out")
+    print(f"list-price cost: {'unknown model price' if cost is None else f'{cost:.6f} USD'}")
+    print(f"time           : {result.seconds:.1f} s for 2 requests")
+    print("OK" if result.ok else "FAILED")
+    return 0 if result.ok else 1
+
+
 def run_eval(args: argparse.Namespace) -> int:
     from oabench.eval.abstention import evaluate_abstention, format_abstention
     from oabench.eval.golden import QUESTIONS_FILE, load_questions
@@ -235,6 +265,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_mcp(args)
     if args.command == "golden":
         return run_golden(args)
+    if args.command == "llm":
+        return run_llm(args)
     if args.command == "eval":
         return run_eval(args)
     return 0
