@@ -383,6 +383,29 @@ Les deux semaines de fin d'année sont comptées à charge réduite.
 - **Abstention des baselines** (prévue en §3.4, maintenant codée) : un moteur « s'abstient » quand le score de son premier résultat est sous un seuil. Le seuil est choisi sur le jeu de développement en maximisant l'exactitude équilibrée, puis appliqué tel quel au jeu de test. Deux taux sont publiés ensemble : abstention correcte (sur les questions sans réponse) et abstention à tort (sur les autres), car un seul des deux se truque en s'abstenant toujours. Le portail n'a pas de seuil : il s'abstient quand il ne renvoie rien.
 - **Outil de jugement** : les questions de développement passent en premier (le premier tableau n'a besoin que d'elles), un compteur de progression est affiché, et `u` annule la note précédente.
 
+**15/11/2026, changement de fournisseur : Google à la place de Mistral.**
+
+Raison : Léon n'a pas pu créer de clé API Mistral et dispose d'une clé Google AI Studio. Ce qui change par rapport au §4.1 :
+
+| Rôle | Avant | Maintenant |
+|---|---|---|
+| Modèle de l'agent | Ministral 3 8B par l'API Mistral | `gemini-3.5-flash-lite` (offre gratuite, tarif public 0,30 $ / 2,50 $ par million de tokens en entrée / sortie) |
+| Référence haute | Mistral Small 4 | `gemini-3.8-flash` (offre gratuite) |
+| Comparaison local / API | mêmes poids des deux côtés | **modèle fermé par API contre modèle à poids ouverts en local** (Ministral 3 8B ou Gemma dans Ollama sur GPU gratuit) |
+| Juge | Gemini | **à redéfinir en J8** : il doit venir d'une autre famille que Gemini |
+
+Conséquences à assumer honnêtement :
+- **Le modèle principal n'est plus à poids ouverts.** L'argument « mêmes poids, seul l'hébergement change » tombe. La comparaison de J10 devient « API propriétaire contre modèle ouvert local », qui mélange deux effets (le modèle et l'hébergement). Elle reste intéressante, mais ne se lit plus de la même façon, et ce sera écrit.
+- **Le juge** : trois options en J8, à trancher à ce moment-là. Réessayer une clé Mistral ; utiliser un autre fournisseur gratuit de modèles ouverts ; ou, à défaut, un autre modèle Gemini avec le biais d'auto-préférence mesuré et annoncé.
+- **Données** : sur l'offre gratuite, Google utilise les requêtes pour améliorer ses produits. Tout ce qui est envoyé ici est public (questions, métadonnées du catalogue nettoyées) ; aucune donnée personnelle ne part, les champs de contact n'étant jamais téléchargés.
+- **Quotas** : ils ne sont pas publiés par modèle ; ils se lisent dans AI Studio (page des limites de débit). Budget d'appels inchangé : 480 au plus par configuration.
+
+Vérifié le 15/11/2026 dans la documentation Google : les identifiants de modèles ci-dessus, l'existence d'une offre gratuite pour chacun, les tarifs publics. **Non vérifié** : l'appel d'outils en conditions réelles (aucune clé n'était disponible au moment d'écrire le code) ; la commande `oabench llm check` le vérifie en deux requêtes. Non vérifié non plus : la disponibilité de Gemma par cette API.
+
+Choix technique : SDK officiel `google-genai` derrière l'interface `LLMClient`, plutôt que des appels HTTP écrits à la main. Raison : les modèles récents renvoient des signatures de raisonnement opaques qu'il faut rejouer telles quelles, ce que le SDK gère ; et je ne pouvais pas tester un client HTTP sans clé. Alternative : `httpx` direct, à reconsidérer si le SDK gêne la traçabilité.
+
+**Questions de Léon** : 9 questions ajoutées le 15/11/2026 (`n38` à `n46`), marquées `annotator` et validées. Les 57 questions proposées attendent toujours leur relecture ; le découpage développement/test ne sera figé qu'une fois toutes les questions validées, pour que la répartition par niveau soit juste.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

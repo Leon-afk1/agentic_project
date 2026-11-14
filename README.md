@@ -24,7 +24,8 @@ Work in progress. What exists today:
 | Repository skeleton, lint, type check, tests, CI | done |
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
 | Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
-| Golden set | 57 questions drafted, none validated yet; relevance judgments not started |
+| Golden set | 66 questions: 9 validated, 57 drafted and awaiting review; relevance judgments not started |
+| LLM client (Google Gemini, tool calling) and API key handling | code done; not yet run against the real API |
 | Engines: portal search (as typed, and keywords only), BM25, multilingual embeddings on CPU, hybrid (rank fusion) | done, not yet scored |
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs, abstention rates | code done; no judgment yet, so no result |
 | Agent, full evaluation | not started |
@@ -55,6 +56,20 @@ uv run oabench snapshot --verify
 
 On 12 Nov 2026 this kept 6,867 datasets out of 8,316 catalog records (maps and services are left
 out). The snapshot is written to `data/snapshot/` and is not committed.
+
+## API key
+
+Only the agent needs a key; tests, CI, the snapshot, the MCP server and the search baselines do not.
+
+```bash
+cp .env.example .env                # then paste your Google AI Studio key after GEMINI_API_KEY=
+uv sync --extra llm
+uv run oabench llm check            # 2 requests: checks the key and tool calling
+```
+
+`.env` is git-ignored. The key is read from the environment only, never from a command-line
+argument, and is never printed: the check reports only whether it is set and its length. A test
+fails if a file tracked by git contains something shaped like an API key.
 
 ## Evaluation workflow
 
