@@ -31,7 +31,7 @@ GRADE_LABELS = {2: "relevant", 1: "partially relevant", 0: "not relevant"}
 
 HELP = (
     "[2] relevant   [1] partially relevant   [0] not relevant   "
-    "[m] show more   [s] skip   [q] save and quit"
+    "[m] show more   [u] undo the previous grade   [s] skip   [q] save and quit"
 )
 
 
@@ -136,40 +136,65 @@ def judge(
     for candidate in todo:
         by_question.setdefault(candidate.question_id, []).append(candidate)
     texts = {q.id: q for q in questions}
+    total = len(todo)
     graded = 0
-    show(f"{len(todo)} candidate(s) to judge over {len(by_question)} question(s). {HELP}")
-    for question_id in sorted(by_question):
+    show(f"{total} candidate(s) to judge over {len(by_question)} question(s). {HELP}")
+
+    def order(question_id: str) -> tuple[int, str]:
+        # Dev questions first: the first table (and the tuning) only needs them.
+        known = texts.get(question_id)
+        return (0 if known is not None and known.split == "dev" else 1, question_id)
+
+    queue: list[Candidate] = []
+    for question_id in sorted(by_question, key=order):
         candidates = by_question[question_id]
         # Shuffled with a seed tied to the question: the order carries no hint
         # about ranks, and resuming a session shows the same order again.
         random.Random(question_id).shuffle(candidates)
-        question = texts.get(question_id)
-        for position, candidate in enumerate(candidates, 1):
-            header = question.question if question else question_id
-            show(f"\n[{question_id}] {header}   ({position}/{len(candidates)})")
-            show(_card(catalog, candidate.uuid, 400))
-            while True:
-                answer = ask("> ").strip().lower()
-                if answer in ("0", "1", "2"):
-                    judgments.append(
-                        Judgment(
-                            question_id=question_id,
-                            uuid=candidate.uuid,
-                            grade=int(answer),  # type: ignore[arg-type]
-                        )
-                    )
-                    _save(judgments_path, judgments)
-                    graded += 1
-                    break
-                if answer == "m":
-                    show(_card(catalog, candidate.uuid, 3000))
-                elif answer in ("s", "q"):
-                    break
-                else:
-                    show(HELP)
-            if answer == "q":
-                show(f"{graded} graded, saved to {judgments_path}")
-                return graded
+        queue.extend(candidates)
+
+    position = 0
+    while position < len(queue):
+        candidate = queue[position]
+        question = texts.get(candidate.question_id)
+        header = question.question if question else candidate.question_id
+        show(f"\n[{candidate.question_id}] {header}   (candidate {position + 1}/{total})")
+        show(_card(catalog, candidate.uuid, 400))
+        answer = ask("> ").strip().lower()
+        if answer in ("0", "1", "2"):
+            grade: Grade = 2 if answer == "2" else 1 if answer == "1" else 0
+            judgments.append(
+                Judgment(question_id=candidate.question_id, uuid=candidate.uuid, grade=grade)
+            )
+            _save(judgments_path, judgments)
+            graded += 1
+            position += 1
+        elif answer == "m":
+            show(_card(catalog, candidate.uuid, 3000))
+        elif answer == "u":
+            previous = queue[position - 1] if position > 0 else None
+            last = judgments[-1] if judgments else None
+            if (
+                previous
+                and last
+                and (last.question_id, last.uuid)
+                == (
+                    previous.question_id,
+                    previous.uuid,
+                )
+            ):
+                judgments.pop()
+                _save(judgments_path, judgments)
+                graded -= 1
+                position -= 1
+            else:
+                show("  nothing to undo in this session")
+        elif answer == "s":
+            position += 1
+        elif answer == "q":
+            break
+        else:
+            show(HELP)
     show(f"{graded} graded, saved to {judgments_path}")
     return graded
 

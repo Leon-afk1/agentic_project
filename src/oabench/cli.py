@@ -51,44 +51,61 @@ def build_parser() -> argparse.ArgumentParser:
     pool = actions.add_parser(
         "pool", help="merge the top results of every engine for each question"
     )
+    # The four base engines are pooled at depth 10. A system evaluated later (hybrid,
+    # agent) only adds its own top 5: `golden pool --engines hybrid --depth 5`.
     pool.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
+    pool.add_argument("--depth", type=int, default=10)
     actions.add_parser("judge", help="grade pooled candidates one by one")
 
     evaluate = commands.add_parser("eval", help="score the engines on the judged questions")
     evaluate.add_argument("--golden", type=Path, default=Path("data/golden"))
     evaluate.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
-    evaluate.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
+    evaluate.add_argument("--engines", default=",".join(ENGINE_NAMES))
     evaluate.add_argument("--split", choices=["dev", "test", "all"], default="dev")
     evaluate.add_argument("--lenient", action="store_true", help="count partially relevant too")
     return parser
 
 
+ENGINE_NAMES = ("bm25", "portal", "portal_keywords", "embeddings", "hybrid")
+
+
 def make_engines(names: str, snapshot: Path, cache_dir: Path = Path(".cache")) -> list[Engine]:
     from oabench.catalog import Catalog
-    from oabench.retrieval.engines import BM25Engine, EmbeddingEngine, PortalEngine
+    from oabench.retrieval.engines import (
+        BM25Engine,
+        EmbeddingEngine,
+        FastEmbedEmbedder,
+        HybridEngine,
+        PortalEngine,
+    )
     from oabench.snapshot.build import load_snapshot
 
     datasets = load_snapshot(snapshot)
-    engines: list[Engine] = []
-    for name in [n.strip() for n in names.split(",") if n.strip()]:
+    built: dict[str, Engine] = {}
+
+    def get(name: str) -> Engine:
+        if name in built:
+            return built[name]
+        engine: Engine
         if name == "bm25":
-            engines.append(BM25Engine(Catalog(datasets)))
+            engine = BM25Engine(Catalog(datasets))
         elif name in ("portal", "portal_keywords"):
             client = CachedClient(
                 ResponseCache(cache_dir / "http.sqlite"), RateLimiter(MIN_INTERVAL_S), ttl_s=None
             )
             known = {d.uuid for d in datasets}
-            engines.append(PortalEngine(client, known, keywords=name == "portal_keywords"))
+            engine = PortalEngine(client, known, keywords=name == "portal_keywords")
         elif name == "embeddings":
-            from oabench.retrieval.engines import FastEmbedEmbedder
-
             cache = cache_dir / "embeddings.npz"
-            engines.append(EmbeddingEngine(datasets, FastEmbedEmbedder(), cache=cache))
+            engine = EmbeddingEngine(datasets, FastEmbedEmbedder(), cache=cache)
+        elif name == "hybrid":
+            engine = HybridEngine([get("bm25"), get("embeddings")])
         else:
-            raise SystemExit(
-                f"unknown engine '{name}' (choose among bm25, portal, portal_keywords, embeddings)"
-            )
-    return engines
+            raise SystemExit(f"unknown engine '{name}' (choose among {', '.join(ENGINE_NAMES)})")
+        built[name] = engine
+        return engine
+
+    return [get(name) for name in [n.strip() for n in names.split(",") if n.strip()]]
 
 
 def run_snapshot(args: argparse.Namespace) -> int:
@@ -165,7 +182,9 @@ def run_golden(args: argparse.Namespace) -> int:
         judgments_path = args.file.parent / JUDGMENTS_FILE
         if args.action == "pool":
             engines = make_engines(args.engines, args.snapshot)
-            pool = build_pool(load_questions(args.file), engines, existing=load_pool(pool_path))
+            pool = build_pool(
+                load_questions(args.file), engines, depth=args.depth, existing=load_pool(pool_path)
+            )
             save_pool(pool_path, pool)
         else:
             from oabench.catalog import Catalog
@@ -182,25 +201,29 @@ def run_golden(args: argparse.Namespace) -> int:
 
 
 def run_eval(args: argparse.Namespace) -> int:
+    from oabench.eval.abstention import evaluate_abstention, format_abstention
     from oabench.eval.golden import QUESTIONS_FILE, load_questions
     from oabench.eval.pool import JUDGMENTS_FILE, load_judgments, qrels
     from oabench.eval.report import evaluate_engine, format_comparisons, format_table
 
-    questions = [
-        q
-        for q in load_questions(args.golden / QUESTIONS_FILE)
-        if args.split == "all" or q.split == args.split
-    ]
+    everything = load_questions(args.golden / QUESTIONS_FILE)
+    dev = [q for q in everything if q.split == "dev"]
+    questions = [q for q in everything if args.split == "all" or q.split == args.split]
     grades = qrels(load_judgments(args.golden / JUDGMENTS_FILE))
     min_grade = 1 if args.lenient else 2
-    reports = [
-        evaluate_engine(engine, questions, grades, min_grade=min_grade)
-        for engine in make_engines(args.engines, args.snapshot)
-    ]
+    engines = make_engines(args.engines, args.snapshot)
+    reports = [evaluate_engine(e, questions, grades, min_grade=min_grade) for e in engines]
     relevance = "lenient (grade >= 1)" if args.lenient else "strict (grade 2)"
     print(f"split={args.split}  relevance={relevance}")
     print(format_table(reports))
     print(format_comparisons(reports, "bm25"))
+    # The fused score of the hybrid engine is rank-based, not a confidence.
+    scored = [engine for engine in engines if engine.name != "hybrid"]
+    print(
+        format_abstention(
+            [evaluate_abstention(e, dev, questions, grades, min_grade=min_grade) for e in scored]
+        )
+    )
     return 0
 
 

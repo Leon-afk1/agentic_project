@@ -377,6 +377,12 @@ Les deux semaines de fin d'année sont comptées à charge réduite.
 
 - **Variante « portail, mots-clés seulement » ajoutée** (`portal_keywords`, décidée par Léon le 14/11/2026). Les mots vides et interrogatifs sont retirés avant l'envoi ; la liste est fixée dans le code avant toute évaluation. Résultat de l'essai à blanc : **45 questions sans résultat au lieu de 47**. La variante change donc peu de chose. Explication probable : l'index du portail applique déjà une analyse du français qui écarte les mots vides ; ce qui fait échouer la recherche est l'exigence que **tous les mots porteurs de sens** soient présents dans une même fiche. Vérifié à la main sur le site : « Lignes arrêts bus Nancy » et même « bus Nancy » affichent « Aucune correspondance ». Les deux variantes restent dans le comparatif, pour que ce constat soit chiffré sur les questions validées et non sur un essai à blanc.
 
+**14/11/2026, améliorations avant tes jugements :**
+- **Moteur hybride ajouté** (`hybrid`) : fusion de rangs réciproques (RRF, constante 60 de l'article d'origine, non réglée) entre BM25 et embeddings. C'est la baseline classique la plus solide sans LLM ; l'agent devra la battre, pas seulement battre BM25. Son score est un rang fusionné, pas une confiance : il n'est pas utilisé pour l'abstention.
+- **Mise en commun en deux temps** pour ménager ton temps : les quatre moteurs de base à 10 résultats (994 candidats en essai à blanc), puis chaque système évalué ensuite (hybride, agent) n'ajoute que ses 5 premiers, puisque la métrique est le rappel@5. Mettre l'hybride à 10 dès le départ aurait ajouté 97 candidats.
+- **Abstention des baselines** (prévue en §3.4, maintenant codée) : un moteur « s'abstient » quand le score de son premier résultat est sous un seuil. Le seuil est choisi sur le jeu de développement en maximisant l'exactitude équilibrée, puis appliqué tel quel au jeu de test. Deux taux sont publiés ensemble : abstention correcte (sur les questions sans réponse) et abstention à tort (sur les autres), car un seul des deux se truque en s'abstenant toujours. Le portail n'a pas de seuil : il s'abstient quand il ne renvoie rien.
+- **Outil de jugement** : les questions de développement passent en premier (le premier tableau n'a besoin que d'elles), un compteur de progression est affiché, et `u` annule la note précédente.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |
