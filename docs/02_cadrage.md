@@ -375,6 +375,8 @@ Les deux semaines de fin d'année sont comptées à charge réduite.
   - recouvrement faible entre moteurs : 397 candidats trouvés par les embeddings seuls, 381 par BM25 seul, 145 par les deux. Les deux approches ne remontent pas les mêmes fiches, ce qui justifie de les comparer ;
   - fiche d'origine dans les 5 premiers, sur les 20 questions masquées : BM25 13, embeddings 12, portail 2. Indicatif seulement : ces questions favorisent par construction les moteurs qui lisent la description.
 
+- **Variante « portail, mots-clés seulement » ajoutée** (`portal_keywords`, décidée par Léon le 14/11/2026). Les mots vides et interrogatifs sont retirés avant l'envoi ; la liste est fixée dans le code avant toute évaluation. Résultat de l'essai à blanc : **45 questions sans résultat au lieu de 47**. La variante change donc peu de chose. Explication probable : l'index du portail applique déjà une analyse du français qui écarte les mots vides ; ce qui fait échouer la recherche est l'exigence que **tous les mots porteurs de sens** soient présents dans une même fiche. Vérifié à la main sur le site : « Lignes arrêts bus Nancy » et même « bus Nancy » affichent « Aucune correspondance ». Les deux variantes restent dans le comparatif, pour que ce constat soit chiffré sur les questions validées et non sur un essai à blanc.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

@@ -15,6 +15,7 @@ from oabench.retrieval.engines import (
     Matrix,
     PortalEngine,
     embedding_text,
+    keywords_only,
 )
 from oabench.snapshot.records import Dataset
 
@@ -82,7 +83,9 @@ def test_embedding_text_puts_title_and_keywords_first() -> None:
     assert len(text) < 700
 
 
-def make_portal(hits: list[dict[str, object]]) -> tuple[PortalEngine, list[httpx.Request]]:
+def make_portal(
+    hits: list[dict[str, object]], *, keywords: bool = False
+) -> tuple[PortalEngine, list[httpx.Request]]:
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -94,7 +97,8 @@ def make_portal(hits: list[dict[str, object]]) -> tuple[PortalEngine, list[httpx
         RateLimiter(0.0),
         transport=httpx.MockTransport(handler),
     )
-    return PortalEngine(client, {"a", "b"}, url="https://portal.test/search"), requests
+    engine = PortalEngine(client, {"a", "b"}, url="https://portal.test/search", keywords=keywords)
+    return engine, requests
 
 
 def test_portal_engine_keeps_only_records_of_the_snapshot() -> None:
@@ -121,4 +125,38 @@ def test_portal_engine_neutralises_query_syntax() -> None:
 def test_portal_engine_does_not_call_the_portal_for_an_empty_query() -> None:
     engine, requests = make_portal([])
     assert engine.search(" ?? ", 5) == []
+    assert requests == []
+
+
+def sent_query(request: httpx.Request) -> str:
+    body = json.loads(request.content)
+    return str(body["query"]["bool"]["must"][0]["query_string"]["query"])
+
+
+def test_keywords_only_drops_function_and_question_words() -> None:
+    assert keywords_only("Où sont les écoles à Strasbourg") == "écoles Strasbourg"
+    assert keywords_only("Combien y a-t-il de logements sociaux") == "a-t-il logements sociaux"
+    assert keywords_only("Pistes cyclables") == "Pistes cyclables"
+
+
+def test_portal_keywords_variant_sends_keywords_and_has_its_own_name() -> None:
+    plain, plain_requests = make_portal([])
+    keyword, keyword_requests = make_portal([], keywords=True)
+    question = "Où sont installées les éoliennes dans la Marne ?"
+    plain.search(question, 5)
+    keyword.search(question, 5)
+    assert (plain.name, keyword.name) == ("portal", "portal_keywords")
+    assert sent_query(plain_requests[0]) == "Où sont installées les éoliennes dans la Marne"
+    assert sent_query(keyword_requests[0]) == "installées éoliennes Marne"
+    assert (
+        json.loads(keyword_requests[0].content)["query"]["bool"]["must"][0]["query_string"][
+            "default_operator"
+        ]
+        == "AND"
+    )  # the portal's own semantics are left untouched
+
+
+def test_portal_keywords_variant_skips_a_question_made_of_function_words() -> None:
+    engine, requests = make_portal([], keywords=True)
+    assert engine.search("Où est-ce ?", 5) == []
     assert requests == []

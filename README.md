@@ -25,7 +25,7 @@ Work in progress. What exists today:
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
 | Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
 | Golden set | 57 questions drafted, none validated yet; relevance judgments not started |
-| Engines: portal search, BM25, multilingual embeddings on CPU | done, not yet scored |
+| Engines: portal search (as typed, and keywords only), BM25, multilingual embeddings on CPU | done, not yet scored |
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs | code done; no judgment yet, so no result |
 | Agent, full evaluation | not started |
 

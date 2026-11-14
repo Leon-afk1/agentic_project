@@ -51,13 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
     pool = actions.add_parser(
         "pool", help="merge the top results of every engine for each question"
     )
-    pool.add_argument("--engines", default="bm25,portal,embeddings")
+    pool.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
     actions.add_parser("judge", help="grade pooled candidates one by one")
 
     evaluate = commands.add_parser("eval", help="score the engines on the judged questions")
     evaluate.add_argument("--golden", type=Path, default=Path("data/golden"))
     evaluate.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
-    evaluate.add_argument("--engines", default="bm25,portal,embeddings")
+    evaluate.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
     evaluate.add_argument("--split", choices=["dev", "test", "all"], default="dev")
     evaluate.add_argument("--lenient", action="store_true", help="count partially relevant too")
     return parser
@@ -73,18 +73,21 @@ def make_engines(names: str, snapshot: Path, cache_dir: Path = Path(".cache")) -
     for name in [n.strip() for n in names.split(",") if n.strip()]:
         if name == "bm25":
             engines.append(BM25Engine(Catalog(datasets)))
-        elif name == "portal":
+        elif name in ("portal", "portal_keywords"):
             client = CachedClient(
                 ResponseCache(cache_dir / "http.sqlite"), RateLimiter(MIN_INTERVAL_S), ttl_s=None
             )
-            engines.append(PortalEngine(client, {d.uuid for d in datasets}))
+            known = {d.uuid for d in datasets}
+            engines.append(PortalEngine(client, known, keywords=name == "portal_keywords"))
         elif name == "embeddings":
             from oabench.retrieval.engines import FastEmbedEmbedder
 
             cache = cache_dir / "embeddings.npz"
             engines.append(EmbeddingEngine(datasets, FastEmbedEmbedder(), cache=cache))
         else:
-            raise SystemExit(f"unknown engine '{name}' (choose among bm25, portal, embeddings)")
+            raise SystemExit(
+                f"unknown engine '{name}' (choose among bm25, portal, portal_keywords, embeddings)"
+            )
     return engines
 
 

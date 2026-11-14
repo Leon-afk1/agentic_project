@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 from oabench.catalog import Catalog
 from oabench.portal.http import CachedClient
 from oabench.portal.search import SEARCH_URL
+from oabench.retrieval.text import STOPWORDS, fold
 from oabench.snapshot.records import Dataset
 
 Ranking = list[tuple[str, float]]
@@ -87,20 +88,50 @@ def portal_query(query: str, size: int) -> dict[str, Any]:
 _LUCENE_SPECIALS = str.maketrans(dict.fromkeys('+-&|!(){}[]^"~*?:\\/<>=', " "))
 
 
+# Words a user used to catalog search boxes would not type. The list is fixed
+# here, before any evaluation, and is not tuned on the questions.
+QUESTION_WORDS = frozenset(
+    """
+    comment combien quel quelle quels quelles pourquoi quand quoi dont
+    cherche chercher trouver trouve veux voudrais souhaite existe existent peut
+    sont ont fait faire avoir etre ai as a t
+    """.split()  # noqa: SIM905
+)
+_NOT_KEYWORDS = frozenset(fold(word) for word in STOPWORDS | QUESTION_WORDS)
+
+
+def keywords_only(query: str) -> str:
+    """Drop function and question words, keep the other words as typed."""
+    return " ".join(word for word in query.split() if fold(word) not in _NOT_KEYWORDS)
+
+
 class PortalEngine:
     """The live portal search, restricted to records present in the snapshot.
 
     It queries the real service (through the cache and the rate limiter), so it
     is the only engine that is not strictly reproducible: the portal's content
     and ranking may change after the snapshot date.
+
+    Two variants:
+    - `portal`: the question is sent as typed. The portal requires every word to
+      match, so a question in natural language often returns nothing;
+    - `portal_keywords`: function and question words are removed first, which is
+      what a user familiar with catalog search would type. It is the fairer
+      baseline for the portal's ranking itself.
     """
 
-    name = "portal"
     OVERFETCH = 3  # the portal also returns maps and services, which are filtered out
 
     def __init__(
-        self, client: CachedClient, known_uuids: Collection[str], *, url: str = SEARCH_URL
+        self,
+        client: CachedClient,
+        known_uuids: Collection[str],
+        *,
+        url: str = SEARCH_URL,
+        keywords: bool = False,
     ) -> None:
+        self.name = "portal_keywords" if keywords else "portal"
+        self._keywords = keywords
         self._client = client
         self._known = known_uuids
         self._url = url
@@ -108,6 +139,8 @@ class PortalEngine:
 
     def search(self, query: str, k: int) -> Ranking:
         cleaned = " ".join(query.translate(_LUCENE_SPECIALS).split())
+        if self._keywords:
+            cleaned = keywords_only(cleaned)
         if not cleaned:
             return []
         network_calls = self._client.stats.network_calls
