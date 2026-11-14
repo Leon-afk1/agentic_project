@@ -25,7 +25,9 @@ Work in progress. What exists today:
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
 | Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
 | Golden set | 57 questions drafted, none validated yet; relevance judgments not started |
-| Baselines, agent, evaluation | not started |
+| Engines: portal search, BM25, multilingual embeddings on CPU | done, not yet scored |
+| Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs | code done; no judgment yet, so no result |
+| Agent, full evaluation | not started |
 
 No result is reported here yet because none has been measured.
 
@@ -53,6 +55,17 @@ uv run oabench snapshot --verify
 
 On 12 Nov 2026 this kept 6,867 datasets out of 8,316 catalog records (maps and services are left
 out). The snapshot is written to `data/snapshot/` and is not committed.
+
+## Evaluation workflow
+
+```bash
+uv sync --extra embeddings          # optional: downloads a 220 MB ONNX model on first use
+uv run oabench golden review        # validate proposed questions one by one
+uv run oabench golden split         # freeze the dev/test split
+uv run oabench golden pool          # top 10 of each engine, merged per question
+uv run oabench golden judge         # grade candidates 0/1/2, blind to the engine
+uv run oabench eval --split dev     # recall@5, MRR, latency, with 95% confidence intervals
+```
 
 ## MCP server
 

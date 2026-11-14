@@ -362,6 +362,19 @@ Les deux semaines de fin d'année sont comptées à charge réduite.
 - **Biais à écrire dans le README** : les questions « besoins » ont été rédigées par le même assistant qui avait exploré le catalogue en Phase 1 (statistiques et quelques titres vus). Elles ne partent d'aucune fiche précise, mais ne sont pas aveugles au catalogue. Tes propres questions sont les seules qui le soient.
 - **Questions « sans réponse »** : plusieurs sont des quasi-réponses volontaires (le bon sujet sur le mauvais territoire, par exemple des pistes cyclables à Bordeaux). Leur statut « sans réponse » n'est qu'une hypothèse jusqu'à ton jugement.
 
+**14/11/2026, pendant J4a :**
+- **Modèle d'embeddings : `paraphrase-multilingual-MiniLM-L12-v2`** (Apache 2.0, 384 dimensions, environ 220 Mo) au lieu de `multilingual-e5-small`, que la bibliothèque `fastembed` ne propose pas. Limite connue : il tronque à 128 tokens, donc seuls le titre, les mots-clés et le début de la description sont vus. C'est une dépendance optionnelle (`uv sync --extra embeddings`) : la CI n'a besoin ni du modèle ni du réseau.
+- **Définition du rappel@5 fixée avant tout résultat** : pertinents dans les 5 premiers, divisé par min(5, nombre de pertinents). Sans ce plafond, une question ayant 12 bons jeux ne pourrait jamais dépasser 5/12. « Pertinent » = note 2 (strict) pour le chiffre principal ; note ≥ 1 (souple) en second.
+- **Les questions sans réponse sortent du rappel et du MRR** (ils n'y sont pas définis) et seront mesurées par le taux d'abstention.
+- **Colonne « non jugés dans les 5 premiers »** ajoutée au tableau : tant qu'elle n'est pas à zéro, le score du système est sous-estimé.
+- **Constat sur la recherche du portail** (essai à blanc, questions non encore validées) : avec sa sémantique « tous les mots doivent être présents », elle ne renvoie aucun résultat pour 47 des 57 questions proposées, qui sont rédigées en langage naturel. Ce n'est pas un résultat d'évaluation, seulement un comptage. Il pose une question de protocole à trancher avec toi : faut-il ajouter une variante « portail, mots-clés seulement » (la même requête sans les mots vides), qui représente un utilisateur habitué aux moteurs de catalogues ? Recommandation : oui, comme système a0-bis, pour ne pas comparer l'agent à un adversaire affaibli.
+
+- **Mesures de l'essai à blanc du 14/11/2026** (57 questions proposées, toutes comptées comme validées, rien d'écrit dans `data/golden`) :
+  - embeddings : 500 s pour encoder les 6 867 fiches sur ton PC, une seule fois (cache de 14 Mo) ; ensuite 12 à 61 ms par requête ;
+  - mise en commun à trois moteurs : 992 candidats, médiane de 17 par question, maximum 28. Pour 60 questions, compte environ 1 050 jugements, soit 4 à 5 h à 15 s par candidat ;
+  - recouvrement faible entre moteurs : 397 candidats trouvés par les embeddings seuls, 381 par BM25 seul, 145 par les deux. Les deux approches ne remontent pas les mêmes fiches, ce qui justifie de les comparer ;
+  - fiche d'origine dans les 5 premiers, sur les 20 questions masquées : BM25 13, embeddings 12, portail 2. Indicatif seulement : ces questions favorisent par construction les moteurs qui lisent la description.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |
