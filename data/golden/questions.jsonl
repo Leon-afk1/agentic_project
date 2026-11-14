@@ -1,0 +1,57 @@
+{"id":"m01","question":"Quels établissements sensibles (hôpitaux, écoles, casernes) sont en zone inondable et compliqueraient la gestion de crise ?","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-efafe5a5-5143-486a-a828-8d3c9da39ff7","note":""}
+{"id":"m02","question":"Où trouver la liste des professionnels de santé par intercommunalité ?","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"1710411433735-1","note":""}
+{"id":"m04","question":"Dans le Bas-Rhin, où a-t-on le droit de construire d'après les plans de prévention des risques naturels ?","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-626d4289-3c6b-4f72-a255-02d804d0db6f","note":""}
+{"id":"m05","question":"Relevés LIDAR du lit de la Bruche et de la Sauer","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-226-700-011-020","note":""}
+{"id":"m06","question":"Quelles communes du Bas-Rhin bénéficient d'une opération de revitalisation de leur centre-ville ?","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-7d30c9a8-c57d-4c6f-b319-d1087ad40ba8","note":""}
+{"id":"m07","question":"Carte militaire de 1917 du secteur de Guebwiller","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-200006336-SHD3_GR_6_M_LVIB1F_6_008_0001_H","note":""}
+{"id":"m08","question":"Modèle numérique de surface tiré des photos aériennes IGN de 2018 en Lorraine","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-200052264_GGE_IGNF_ORTHOHR_MNS_52_2019","note":""}
+{"id":"m10","question":"Quelles communes de Haute-Marne servent de pôles de services et d'équipements ?","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-a53b3d55-95a1-4b05-91c6-7e7d697e8d7c","note":""}
+{"id":"m11","question":"Où sont les centres de traitement des ordures ménagères dans le Bas-Rhin ?","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-226-700-011-101","note":""}
+{"id":"m12","question":"Indice quotidien de qualité de l'air par intercommunalité","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-822734307-040121-histo-iqa-Grand-Est","note":""}
+{"id":"m13","question":"Cartes d'exposition au bruit en Meurthe-et-Moselle","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-350ef4c5-35ae-4e5a-ba1a-a775a094ba83","note":""}
+{"id":"m14","question":"Les enseignants absents sont-ils remplacés à l'école primaire ? Je cherche les taux par département.","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-en-remplacement-premier-degre","note":""}
+{"id":"m15","question":"Horaires et arrêts des cars et trains du réseau régional Fluo","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"FR-200052264-T0045-0000","note":""}
+{"id":"m16","question":"Combien la ville de Châlons-en-Champagne a-t-elle réellement dépensé et encaissé en 2019 ?","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"1667642154294-2","note":""}
+{"id":"m18","question":"Découpage de la France en petites régions agricoles","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-130006711-001-DG-2021-PRA","note":""}
+{"id":"m19","question":"Limites des grands bassins hydrographiques français (comités de bassin)","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"3a781ded-b2d6-4233-a3fa-83d528d16c79","note":""}
+{"id":"m20","question":"Relevés topographiques des ouvrages sur les cours d'eau du bassin de la Vesle","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"fr-120066022-jdd-7b7dbd91-aeb5-4980-95df-ba0f6129f873","note":""}
+{"id":"m21","question":"Où sont les résidences autonomie pour personnes âgées dans le Bas-Rhin ?","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"FR-226-700-011-201802090945","note":""}
+{"id":"m23","question":"Quelle est la profondeur du Rhin ? Je cherche le relief du fond du fleuve.","level":"medium","source":"masked_record","status":"proposed","seed_uuid":"dea1901c-5d17-488c-b379-291018612427","note":""}
+{"id":"m24","question":"Carte d'altitude du Rhin supérieur avec une maille de 25 mètres","level":"easy","source":"masked_record","status":"proposed","seed_uuid":"0dfbcf14-2f1e-4a2d-b186-6c532a00f9f2","note":""}
+{"id":"n01","question":"Bornes de recharge pour véhicules électriques à Mulhouse","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n02","question":"Pistes cyclables à Strasbourg","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n03","question":"Zones inondables en Meurthe-et-Moselle","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n04","question":"Arbres de la ville de Strasbourg","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n05","question":"Occupation du sol dans le Grand Est","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n06","question":"Limites des intercommunalités (EPCI) du Grand Est","level":"easy","source":"need","status":"proposed","note":""}
+{"id":"n07","question":"Où faire du vélo en sécurité à Strasbourg ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n08","question":"Dans quelle école mon enfant sera-t-il inscrit selon mon adresse à Strasbourg ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n09","question":"Quels quartiers sont prioritaires pour la politique de la ville à Reims ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n10","question":"Où manque-t-il de médecins dans le Grand Est ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n11","question":"Où déposer mes encombrants autour de Metz ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n12","question":"Quels espaces naturels sont protégés dans les Vosges ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n13","question":"Mon terrain est-il constructible ? Je cherche le plan local d'urbanisme d'une commune de l'Aube.","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n14","question":"Les rivières d'Alsace sont-elles polluées ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n15","question":"Lignes et arrêts de bus à Nancy","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n16","question":"Anciens sites industriels à réhabiliter en Moselle","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n17","question":"D'où vient l'eau du robinet ? Je cherche les captages d'eau potable et leurs périmètres de protection.","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n18","question":"Combien y a-t-il de logements sociaux dans chaque commune ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n19","question":"Où sont installées les éoliennes dans la Marne ?","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n20","question":"Monuments historiques et leurs périmètres de protection","level":"medium","source":"need","status":"proposed","note":""}
+{"id":"n21","question":"Comment l'occupation du sol a-t-elle évolué dans les Vosges depuis 2010 ?","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n22","question":"Je veux comparer l'artificialisation des sols en Alsace entre deux dates : quels millésimes existent ?","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n23","question":"Je veux croiser les zones inondables et les établissements scolaires du Bas-Rhin : quelles données prendre ?","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n24","question":"Nombre de travailleurs frontaliers vers le Luxembourg, par commune de résidence","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n25","question":"Comptages du trafic routier par tronçon dans le Haut-Rhin, sur les dernières années","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n26","question":"Mesures horaires de pollution de l'air à Strasbourg, et non l'indice synthétique","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n27","question":"Photos aériennes des années 1950 de Strasbourg, pour comparer avec aujourd'hui","level":"hard","source":"need","status":"proposed","note":""}
+{"id":"n28","question":"Prix de l'immobilier à Reims","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n29","question":"Résultats du baccalauréat par lycée","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n30","question":"Menus des cantines scolaires de Nancy","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n31","question":"Horaires d'ouverture des piscines de Metz","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n32","question":"Salaire moyen par entreprise à Strasbourg","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n33","question":"Nombre de crimes et délits par quartier à Mulhouse","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n34","question":"Places libres en temps réel dans les parkings de Troyes","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n35","question":"Résultats des élections municipales de 2026 par bureau de vote à Colmar","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n36","question":"Consommation d'électricité de chaque logement de ma rue","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}
+{"id":"n37","question":"Pistes cyclables à Bordeaux","level":"no_answer","source":"need","status":"proposed","note":"expected to have no answer; to be confirmed when judging"}

@@ -24,7 +24,8 @@ Work in progress. What exists today:
 | Repository skeleton, lint, type check, tests, CI | done |
 | Portal client (SQLite cache, 1 request/s, bounded retries) and frozen snapshot | done |
 | Read-only MCP server, 4 tools, BM25 search over the snapshot (stdio) | done, tested with the SDK client; not yet tried in Claude Desktop |
-| Golden set, baselines, agent, evaluation | not started |
+| Golden set | 57 questions drafted, none validated yet; relevance judgments not started |
+| Baselines, agent, evaluation | not started |
 
 No result is reported here yet because none has been measured.
 

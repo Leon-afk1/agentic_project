@@ -355,6 +355,13 @@ Les deux semaines de fin d'année sont comptées à charge réduite.
 - **SDK MCP en version 2** (`MCPServer` remplace `FastMCP`). Les exemples de `datagouv-mcp` et la plupart des tutoriels sont en version 1.
 - **Observation utile pour le protocole** : BM25 renvoie toujours ses meilleurs résultats, même pour « prix de l'immobilier à Reims » (score 12,7 contre 49,8 pour une vraie correspondance). Le seuil d'abstention des baselines devra être réglé sur le jeu de développement, comme prévu en §3.4.
 
+**14/11/2026, pendant J3 :**
+- **J3 est coupé en deux.** La mise en commun des résultats demande que les trois moteurs existent (portail, BM25, embeddings), donc elle ne peut pas précéder J4. Nouvel ordre : J3a questions validées (maintenant), J4a moteurs, J3b jugements des candidats, J4b métriques et premier tableau.
+- **Profondeur de mise en commun ramenée de 15 à 10** par moteur. La métrique principale est le rappel@5 ; à 15, il fallait juger environ 1 500 candidats, à 10 environ 1 000. C'est ton temps qui est le chemin critique.
+- **Questions « fiches masquées » rédigées par Claude dans la session**, pas par un modèle appelé par API : aucune clé n'existe encore et le résultat est le même. Ce qui lui a été montré : description, colonnes, organisation, thématique ; ni titre, ni identifiant, ni lien. Tirage reproductible (`sample_for_masking`, graine 20261114, 24 fiches tirées, 20 retenues : 4 étaient inexploitables sans le titre).
+- **Biais à écrire dans le README** : les questions « besoins » ont été rédigées par le même assistant qui avait exploré le catalogue en Phase 1 (statistiques et quelques titres vus). Elles ne partent d'aucune fiche précise, mais ne sont pas aveugles au catalogue. Tes propres questions sont les seules qui le soient.
+- **Questions « sans réponse »** : plusieurs sont des quasi-réponses volontaires (le bon sujet sur le mauvais territoire, par exemple des pistes cyclables à Bordeaux). Leur statut « sans réponse » n'est qu'une hypothèse jusqu'à ton jugement.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

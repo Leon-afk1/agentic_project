@@ -36,6 +36,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp = commands.add_parser("mcp", help="serve the snapshot over MCP (stdio, read-only)")
     mcp.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
+
+    golden = commands.add_parser("golden", help="manage the golden set of questions")
+    golden.add_argument("--file", type=Path, default=Path("data/golden/questions.jsonl"))
+    golden.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
+    actions = golden.add_subparsers(dest="action", required=True)
+    actions.add_parser("stats", help="counts by status, level, source and split")
+    actions.add_parser("review", help="validate proposed questions one by one")
+    add = actions.add_parser("add", help="add a question of your own")
+    add.add_argument("question")
+    add.add_argument("--level", required=True, choices=["easy", "medium", "hard", "no_answer"])
+    actions.add_parser("split", help="assign validated questions to dev or test (never reshuffles)")
     return parser
 
 
@@ -81,12 +92,35 @@ def run_mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_golden(args: argparse.Namespace) -> int:
+    from oabench.eval.golden import assign_split, load_questions, save_questions, summary
+    from oabench.eval.review import add_question, review
+
+    if args.action == "review":
+        from oabench.catalog import Catalog
+        from oabench.snapshot.build import DATASETS_FILE, load_snapshot
+
+        has_snapshot = (args.snapshot / DATASETS_FILE).exists()
+        catalog = Catalog(load_snapshot(args.snapshot)) if has_snapshot else None
+        review(args.file, catalog=catalog)
+    elif args.action == "add":
+        question = add_question(args.file, args.question, args.level)
+        print(f"added [{question.id}] {question.question}")
+    elif args.action == "split":
+        save_questions(args.file, assign_split(load_questions(args.file)))
+    for section, counts in summary(load_questions(args.file)).items():
+        print(f"{section:7}: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "snapshot":
         return run_snapshot(args)
     if args.command == "mcp":
         return run_mcp(args)
+    if args.command == "golden":
+        return run_golden(args)
     return 0
 
 
