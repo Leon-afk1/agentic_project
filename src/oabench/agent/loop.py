@@ -130,6 +130,7 @@ async def run_agent(
     limits: Limits | None = None,
     clock: Callable[[], float] = time.perf_counter,
     price: Callable[[int, int], float | None] | None = None,
+    system_prompt: str = AGENT_SYSTEM,
 ) -> AgentResult:
     limits = limits or Limits()
     tracer = tracer or Tracer()
@@ -233,14 +234,14 @@ async def run_agent(
             last_step = result.steps == limits.max_steps - 1
             if last_step:
                 response = call_model(
-                    AGENT_SYSTEM + FINAL_STEP, messages, [SUBMIT_ANSWER], SUBMIT_ANSWER.name
+                    system_prompt + FINAL_STEP, messages, [SUBMIT_ANSWER], SUBMIT_ANSWER.name
                 )
             else:
                 left = limits.max_steps - result.steps - 1
                 pacing = (
                     f"{NL}Model calls left after this one: {left}. The last one must be the answer."
                 )
-                response = call_model(AGENT_SYSTEM + pacing, messages, all_tools)
+                response = call_model(system_prompt + pacing, messages, all_tools)
             messages.append(response.as_message())
             submitted = any(c.name == SUBMIT_ANSWER.name for c in response.tool_calls)
             if last_step and not submitted:

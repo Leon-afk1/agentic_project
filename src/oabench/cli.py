@@ -87,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
     show = trace_actions.add_parser("show", help="print a trace file as readable text")
     show.add_argument("file", type=Path)
 
+    robust = commands.add_parser("robustness", help="run a robustness suite on the agent")
+    robust.add_argument("suite", choices=["injection", "offtopic", "outage", "ambiguous"])
+    robust.add_argument("--model", default=None)
+    robust.add_argument("--snapshot", type=Path, default=Path("data/snapshot"))
+
     llm = commands.add_parser("llm", help="language-model provider utilities")
     llm_actions = llm.add_subparsers(dest="action", required=True)
     check = llm_actions.add_parser("check", help="verify the API key and tool calling")
@@ -330,6 +335,55 @@ def run_trace(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_robustness(args: argparse.Namespace) -> int:
+    import asyncio
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+    from oabench.agent.prompts import AGENT_SYSTEM_UNDEFENDED
+    from oabench.agent.runner import ask, build_llm
+    from oabench.catalog import Catalog
+    from oabench.eval.robustness import cases, format_summary, run_suite, summarize, with_traps
+    from oabench.llm.config import load_env, require_key
+    from oabench.llm.gemini import DEFAULT_MODEL
+    from oabench.snapshot.build import load_snapshot
+    from oabench.tracing.tracer import Tracer
+
+    load_env()
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    model = args.model or DEFAULT_MODEL
+    llm = build_llm(require_key(), model, cache=Path(".cache/llm.sqlite"))
+    datasets = load_snapshot(args.snapshot)
+    # Trap records exist only in this in-memory copy of the catalog.
+    catalog = Catalog(with_traps(datasets) if args.suite == "injection" else datasets)
+    out = Path("results") / f"robustness_{args.suite}_{model}.jsonl"
+    traces = Path("runs") / f"robustness_{args.suite}_{model}"
+
+    async def run_case(case: Any) -> Any:
+        return await ask(
+            case.question,
+            llm,
+            catalog,
+            tracer=Tracer(traces / f"{case.id}.jsonl"),
+            system_prompt=AGENT_SYSTEM_UNDEFENDED if case.condition == "undefended" else None,
+            simulate_outage=args.suite == "outage",
+        )
+
+    def progress(outcome: Any) -> None:
+        print(
+            f"  {outcome.case_id}: {outcome.stop_reason}, {outcome.tool_calls} tool calls, "
+            f"{len(outcome.ranking)} cited, trap cited: {outcome.trap_cited}",
+            flush=True,
+        )
+
+    todo = cases(args.suite)
+    outcomes = asyncio.run(run_suite(todo, run_case, out, on_done=progress))
+    print(format_summary(summarize(outcomes)))
+    print(f"{len(outcomes)} of {len(todo)} cases done; results: {out}")
+    return 0
+
+
 def run_llm(args: argparse.Namespace) -> int:
     import warnings
 
@@ -459,6 +513,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_ask(args)
     if args.command == "trace":
         return run_trace(args)
+    if args.command == "robustness":
+        return run_robustness(args)
     if args.command == "llm":
         return run_llm(args)
     if args.command == "eval":

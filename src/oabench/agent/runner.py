@@ -12,6 +12,7 @@ from typing import Any
 from mcp import Client
 
 from oabench.agent.loop import AgentResult, Limits, ToolOutcome, run_agent
+from oabench.agent.prompts import AGENT_SYSTEM
 from oabench.catalog import Catalog
 from oabench.llm.types import LLMClient, ToolSpec
 from oabench.mcp_server.server import build_server
@@ -21,6 +22,7 @@ from oabench.tracing.tracer import Tracer
 
 REQUESTS_PER_MINUTE = 15  # free-tier quota read by the project owner on 15 Nov 2026
 SAFETY_MARGIN_S = 0.5
+OUTAGE_MESSAGE = "HTTP 503 Service Unavailable: the catalog is temporarily unreachable."
 
 
 def strip_titles(schema: Any) -> Any:
@@ -55,6 +57,8 @@ async def ask(
     tracer: Tracer | None = None,
     limits: Limits | None = None,
     ranker: Engine | None = None,
+    system_prompt: str | None = None,
+    simulate_outage: bool = False,
 ) -> AgentResult:
     from oabench.llm.gemini import cost_usd
 
@@ -62,6 +66,9 @@ async def ask(
         specs = to_tool_specs((await client.list_tools()).tools)
 
         async def run_tool(name: str, arguments: dict[str, Any]) -> ToolOutcome:
+            if simulate_outage:
+                # Robustness test: the catalog answers nothing but errors.
+                return ToolOutcome({"error": OUTAGE_MESSAGE}, is_error=True)
             result = await client.call_tool(name, arguments)
             text = "".join(getattr(block, "text", "") for block in result.content)
             if result.is_error:
@@ -78,6 +85,7 @@ async def ask(
             run_tool,
             tracer=tracer,
             limits=limits,
+            system_prompt=system_prompt or AGENT_SYSTEM,
             price=lambda tokens_in, tokens_out: cost_usd(llm.model, tokens_in, tokens_out),
         )
 
