@@ -56,7 +56,17 @@ def build_parser() -> argparse.ArgumentParser:
     # agent) only adds its own top 5: `golden pool --engines hybrid --depth 5`.
     pool.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
     pool.add_argument("--depth", type=int, default=10)
-    actions.add_parser("judge", help="grade pooled candidates one by one")
+    judge_cmd = actions.add_parser("judge", help="grade pooled candidates one by one")
+    judge_cmd.add_argument("--split", choices=["dev", "test"], default=None)
+    judge_cmd.add_argument(
+        "--review",
+        default=None,
+        metavar="FILE",
+        help="show the grades of this judgment file and let Enter accept them (not blind)",
+    )
+    judge_cmd.add_argument(
+        "--out", default=None, metavar="FILE", help="judgment file to write (default: human file)"
+    )
     agreement = actions.add_parser("agreement", help="compare two judgment files (kappa)")
     agreement.add_argument("first")
     agreement.add_argument("second")
@@ -95,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate.add_argument("--agent", action="store_true", help="also run and score the agent")
     evaluate.add_argument("--model", default=None, help="agent model")
+    evaluate.add_argument(
+        "--search-engine",
+        default="bm25",
+        choices=["bm25", "hybrid", "embeddings"],
+        help="index behind the agent's search tool",
+    )
     return parser
 
 
@@ -231,7 +247,20 @@ def run_golden(args: argparse.Namespace) -> int:
             from oabench.snapshot.build import load_snapshot
 
             catalog = Catalog(load_snapshot(args.snapshot))
-            judge(pool_path, judgments_path, load_questions(args.file), catalog)
+            if args.out:
+                judgments_path = args.file.parent / args.out
+            suggestions = None
+            if args.review:
+                reviewed = load_judgments(args.file.parent / args.review)
+                suggestions = {(j.question_id, j.uuid): j.grade for j in reviewed}
+            judge(
+                pool_path,
+                judgments_path,
+                load_questions(args.file),
+                catalog,
+                split=args.split,
+                suggestions=suggestions,
+            )
         pool = load_pool(pool_path)
         left = len(pending(pool, load_judgments(judgments_path)))
         print(f"pool   : {len(pool)} candidates, {left} still to judge")
@@ -351,14 +380,18 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
     model = args.model or DEFAULT_MODEL
     llm = build_llm(require_key(), model, cache=Path(".cache/llm.sqlite"))
     catalog = Catalog(load_snapshot(args.snapshot))
-    out = Path("results") / f"agent_{args.split}_{model}.jsonl"
-    traces = Path("runs") / f"eval_{args.split}_{model}"
+    ranker = None
+    suffix = ""
+    if args.search_engine != "bm25":
+        ranker = make_engines(args.search_engine, args.snapshot)[0]
+        suffix = f"_{args.search_engine}"
+    out = Path("results") / f"agent_{args.split}_{model}{suffix}.jsonl"
+    traces = Path("runs") / f"eval_{args.split}_{model}{suffix}"
     validated = [q for q in questions if q.status == "validated"]
 
     async def ask_one(question: Any) -> Any:
-        return await ask(
-            question.question, llm, catalog, tracer=Tracer(traces / f"{question.id}.jsonl")
-        )
+        tracer = Tracer(traces / f"{question.id}.jsonl")
+        return await ask(question.question, llm, catalog, tracer=tracer, ranker=ranker)
 
     def progress(run: Any) -> None:
         print(
@@ -369,7 +402,7 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
     runs = asyncio.run(run_questions(validated, model, ask_one, out, on_done=progress))
     missing = unjudged_pairs(runs, grades)
     report = format_agent_report(runs, validated, grades, min_grade=min_grade)
-    lines = [f"--- agent ({model}) ---", report]
+    lines = [f"--- agent ({model}, search: {args.search_engine}) ---", report]
     if missing:
         lines.append(
             f"{len(missing)} cited record(s) are not judged yet: "

@@ -12,7 +12,7 @@ Any system evaluated later must have its unjudged results added to the pool
 from __future__ import annotations
 
 import random
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -128,10 +128,20 @@ def judge(
     *,
     ask: Callable[[str], str] = input,
     show: Callable[[str], None] = print,
+    split: str | None = None,
+    suggestions: Mapping[tuple[str, str], int] | None = None,
 ) -> int:
-    """Grade pending candidates, question by question. Returns how many were graded."""
+    """Grade pending candidates, question by question. Returns how many were graded.
+
+    `split` restricts the session to the dev or the test questions.
+    `suggestions` switches to review mode: the grade given by another annotator
+    (a language model) is shown and Enter accepts it. Faster, but the reviewer is
+    influenced by what is shown: such grades are a human *review*, not an
+    independent human judgment, and must not be used to measure agreement.
+    """
     judgments = load_judgments(judgments_path)
-    todo = pending(load_pool(pool_path), judgments)
+    wanted = {q.id for q in questions if split is None or q.split == split}
+    todo = [c for c in pending(load_pool(pool_path), judgments) if c.question_id in wanted]
     by_question: dict[str, list[Candidate]] = {}
     for candidate in todo:
         by_question.setdefault(candidate.question_id, []).append(candidate)
@@ -160,7 +170,12 @@ def judge(
         header = question.question if question else candidate.question_id
         show(f"\n[{candidate.question_id}] {header}   (candidate {position + 1}/{total})")
         show(_card(catalog, candidate.uuid, 400))
+        suggested = (suggestions or {}).get((candidate.question_id, candidate.uuid))
+        if suggested is not None:
+            show(f"  MODEL   graded {suggested} ({GRADE_LABELS[suggested]}). Enter = accept.")
         answer = ask("> ").strip().lower()
+        if answer == "" and suggested is not None:
+            answer = str(suggested)
         if answer in ("0", "1", "2"):
             grade: Grade = 2 if answer == "2" else 1 if answer == "1" else 0
             judgments.append(

@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from oabench import __version__
 from oabench.catalog import ISO_TOPICS, Catalog
+from oabench.retrieval.engines import Engine
+from oabench.retrieval.text import fold
 from oabench.snapshot.records import Column, Dataset
 
 # Public page of a record on the portal (checked by hand on 14 Nov 2026).
@@ -147,10 +149,47 @@ def to_metadata(dataset: Dataset) -> DatasetMetadata:
     )
 
 
-def build_server(catalog: Catalog) -> MCPServer:
+SEARCH_DOC_LEXICAL = (
+    "Search datasets by keywords. Returns ids and short summaries, best match first.\n\n"
+    "Matching is lexical: try synonyms or broader terms when results are poor. "
+    "An empty result list means no dataset contains any of the query terms."
+)
+SEARCH_DOC_RANKER = (
+    "Search datasets. Returns ids and short summaries, best match first.\n\n"
+    "Matching combines keywords and meaning, so a question in plain French works. "
+    "It always returns its closest matches, even when nothing really fits: check them."
+)
+RANKER_DEPTH = 50
+
+
+def build_server(catalog: Catalog, ranker: Engine | None = None) -> MCPServer:
+    """`ranker`: engine used by search_datasets instead of the catalog's own BM25.
+
+    It is the experiment variable "which index is behind the agent's search tool".
+    """
     server = MCPServer(name="oabench-catalog", version=__version__, instructions=INSTRUCTIONS)
 
-    @server.tool(annotations=READ_ONLY)
+    def ranked_search(
+        query: str, topic: str | None, organization: str | None, limit: int
+    ) -> tuple[list[tuple[Dataset, float]], int]:
+        if ranker is None:
+            hits, total = catalog.search(query, topic=topic, organization=organization, limit=limit)
+            return [(h.dataset, h.score) for h in hits], total
+        needle = fold(organization) if organization else None
+        kept: list[tuple[Dataset, float]] = []
+        for uuid, score in ranker.search(query, RANKER_DEPTH):
+            dataset = catalog.get(uuid)
+            if dataset is None or (topic is not None and topic not in dataset.topics):
+                continue
+            if needle and not any(needle in fold(org) for org in dataset.organizations):
+                continue
+            kept.append((dataset, score))
+        return kept[:limit], len(kept)
+
+    @server.tool(
+        annotations=READ_ONLY,
+        description=SEARCH_DOC_LEXICAL if ranker is None else SEARCH_DOC_RANKER,
+    )
     def search_datasets(
         query: Annotated[str, Field(description="Keywords, in French. Put place names here.")],
         topic: Annotated[
@@ -168,11 +207,11 @@ def build_server(catalog: Catalog) -> MCPServer:
         """
         if topic is not None and topic not in ISO_TOPICS:
             raise ToolError(f"unknown topic '{topic}'. Valid keys: {', '.join(ISO_TOPICS)}")
-        hits, total = catalog.search(query, topic=topic, organization=organization, limit=limit)
+        hits, total = ranked_search(query, topic, organization, limit)
         return SearchResponse(
             query=query,
             total_matches=total,
-            results=[to_search_result(h.dataset, h.score) for h in hits],
+            results=[to_search_result(dataset, score) for dataset, score in hits],
         )
 
     @server.tool(annotations=READ_ONLY)

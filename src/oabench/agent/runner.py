@@ -16,6 +16,7 @@ from oabench.catalog import Catalog
 from oabench.llm.types import LLMClient, ToolSpec
 from oabench.mcp_server.server import build_server
 from oabench.portal.http import RateLimiter
+from oabench.retrieval.engines import Engine
 from oabench.tracing.tracer import Tracer
 
 REQUESTS_PER_MINUTE = 15  # free-tier quota read by the project owner on 15 Nov 2026
@@ -53,10 +54,11 @@ async def ask(
     *,
     tracer: Tracer | None = None,
     limits: Limits | None = None,
+    ranker: Engine | None = None,
 ) -> AgentResult:
     from oabench.llm.gemini import cost_usd
 
-    async with Client(build_server(catalog)) as client:
+    async with Client(build_server(catalog, ranker)) as client:
         specs = to_tool_specs((await client.list_tools()).tools)
 
         async def run_tool(name: str, arguments: dict[str, Any]) -> ToolOutcome:
