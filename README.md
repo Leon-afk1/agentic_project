@@ -122,6 +122,28 @@ searches with; what it adds is ranking a good dataset first, citing few useless 
 saying when the catalog has nothing. Abstention thresholds of BM25 and embeddings were tuned and
 measured on the same questions. With 16 and 6 questions, intervals are wide.
 
+### Agent v2
+
+After the robustness pass below, four changes were made (a `needs_clarification` status,
+immediate abstention on off-topic requests, a stop after two "service unavailable" tool results,
+suggestions kept only when they name a producer seen in tool results). On the same 22 dev
+questions, judged by a language model:
+
+| | Agent v1 | Agent v2 | BM25 alone |
+|---|---|---|---|
+| Recall@5 [95% CI] | 0.75 [0.59, 0.91] | 0.78 [0.62, 0.93] | 0.76 [0.57, 0.92] |
+| MRR [95% CI] | 0.94 [0.81, 1.00] | 1.00 [1.00, 1.00] | 0.73 [0.55, 0.91] |
+| Correct abstention (6) | 100% | 100% | 67% |
+| Wrongful abstention (16) | 0% | 0% | 19% |
+
+Paired differences: v2 against v1 is inconclusive on both metrics; v2 against BM25 is inconclusive
+on recall@5 (+0.02 [-0.19, +0.27]) and conclusive on MRR (+0.27 [+0.09, +0.45]). An MRR of 1.00 on
+16 questions the agent was tuned on says little about unseen questions.
+
+The robustness suites have **not** been rerun on v2 beyond two ambiguity cases (daily API quota
+reached), and both still failed: the new clarification rule shows no effect so far. The table
+below describes v1.
+
 ## Robustness (first pass)
 
 Agent `gemini-3.5-flash-lite` over BM25, prompts unchanged. Small suites: read them as

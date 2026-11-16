@@ -497,6 +497,36 @@ Améliorations identifiées, **non appliquées** (elles changent les consignes, 
 3. Arrêter après deux erreurs d'outil consécutives de type « service indisponible ».
 4. Retirer ou encadrer le champ `suggestions`, seul texte non vérifiable de la réponse.
 
+**16/11/2026, agent v2 (les quatre améliorations, appliquées à la demande de Léon) :**
+
+Changements : statut `needs_clarification` avec une question pour l'utilisateur ; consigne de s'abstenir tout de suite hors sujet ; arrêt après deux résultats « service indisponible » consécutifs, avec un message fixe et sans nouvel appel au modèle ; suggestions gardées seulement si elles nomment un producteur vu dans les résultats d'outils ou un portail de la liste autorisée (data.gouv.fr, INSEE, IGN). Les résultats sont désormais versionnés (`_v1`, `_v2`) et jamais mélangés.
+
+Jeu de développement, jugé par un modèle, `gemini-3.5-flash-lite` sur BM25 :
+
+| Mesure | Agent v1 | Agent v2 | BM25 seul |
+|---|---|---|---|
+| Rappel@5 [IC 95 %] | 0,75 [0,59 ; 0,91] | 0,78 [0,62 ; 0,93] | 0,76 [0,57 ; 0,92] |
+| MRR [IC 95 %] | 0,94 [0,81 ; 1,00] | 1,00 [1,00 ; 1,00] | 0,73 [0,55 ; 0,91] |
+| Citations pertinentes | 77 % | 77 % | sans objet |
+| Abstention correcte (6) | 100 % | 100 % | 67 % |
+| Abstention à tort (16) | 0 % | 0 % | 19 % |
+| Appels au modèle par question | 5,5 | 5,5 | 0 |
+| Coût par question, tarif public | 0,0052 $ | 0,0054 $ | 0 |
+| Latence médiane | 7,2 s | 8,2 s | 4 ms |
+
+- **Écarts appariés** : v2 moins v1, +0,03 en rappel@5 [−0,08 ; +0,17] et +0,06 en MRR [0,00 ; +0,19], non concluants : les nouvelles consignes n'ont pas dégradé l'agent sur les questions ordinaires, et rien ne montre qu'elles l'aient amélioré. v2 moins BM25 : +0,02 en rappel@5 [−0,19 ; +0,27], non concluant ; **+0,27 en MRR [+0,09 ; +0,45], concluant**.
+- **Ce MRR de 1,00 est à prendre avec prudence** : 16 questions, jugées par un modèle, sur le jeu qui a servi à régler l'agent. Il dit que, sur ces questions, le premier jeu cité est toujours pertinent. Il ne dit rien du jeu de test.
+- **Six réponses ont changé** entre v1 et v2 sur les 22 questions, alors que seules les consignes annexes ont bougé : c'est la variabilité normale d'un modèle dont on change le prompt, et une raison de plus de ne pas sur-interpréter un écart de quelques centièmes.
+
+**Robustesse de la v2 : presque rien n'a pu être mesuré.** Le quota journalier de Gemini a été atteint (erreurs 429) après deux cas de la série « ambiguïté ». Les séries hors sujet, panne et injection n'ont pas tourné en v2 ; elles reprendront au prochain lancement.
+
+- **Les deux cas d'ambiguïté passés ont échoué comme en v1** : « Je cherche des données » et « Des données sur les routes » obtiennent encore trois jeux choisis en silence. **La consigne de demander une précision n'a donc pas d'effet observable** sur ces deux cas.
+- **Cause probable, lue dans la trace** : l'étape de plan transforme n'importe quelle demande en mots-clés (« données, région, Grand Est, statistiques »), et le modèle suit ensuite son plan. La décision « cette demande est trop vague » arrive trop tard.
+- **Piste pour une v3, non appliquée** : faire le tri dans l'étape de plan elle-même (type de demande : recherche, trop vague, hors sujet) et conclure tout de suite dans les deux derniers cas, en un seul appel au modèle. Risque à mesurer : qu'une vraie question soit classée « trop vague » et provoque une abstention à tort ; il faudra vérifier sur les 22 questions de développement qu'aucune n'est mal triée.
+- **Arrêt sur panne et filtre des suggestions** : vérifiés par les tests automatiques seulement, pas encore avec le vrai modèle.
+
+Mon décompte du quota était faux : j'estimais environ 480 appels consommés avant ce lot, or 125 de plus sont passés. Le compteur du fournisseur ne correspond pas à un simple cumul sur la journée civile ; je ne sais pas le prédire.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

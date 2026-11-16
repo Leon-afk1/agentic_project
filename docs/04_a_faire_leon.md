@@ -148,18 +148,22 @@ Si une réponse ne te vient pas, demande-moi : c'est le but. Je peux aussi te pr
 | Nom du dépôt GitHub | À décider avant la mise en valeur | `agentic_project` est neutre mais peu parlant |
 | Démo en ligne | Rien pour l'instant | Coût et charge sur le portail ; une vidéo de 2 minutes suffit au MVP |
 
-## Décision supplémentaire (16/11/2026) : améliorer l'agent avant de le figer ?
+## État de l'agent au 16/11/2026 : pas encore figé
 
-Les tests de robustesse ont montré quatre défauts (détail dans `docs/02_cadrage.md`, §7.3). Les corriger change les consignes de l'agent, donc oblige à rejouer l'évaluation du jeu de développement (environ 120 appels, une demi-journée de quota).
+Les quatre améliorations sont appliquées (agent v2) et l'évaluation du jeu de développement est refaite. Deux choses restent à faire avant de figer l'agent, et elles ne dépendent pas de toi mais du quota Gemini :
 
-| Défaut | Correction proposée | Mon avis |
-|---|---|---|
-| Aucune ambiguïté signalée (0 sur 6) | Troisième statut `needs_clarification` dans la réponse finale | À faire : c'est le défaut le plus visible en démonstration |
-| Recherches inutiles sur une demande hors sujet | Consigne : s'abstenir tout de suite | À faire, peu coûteux |
-| Jusqu'à 6 essais pendant une panne | Arrêt après deux erreurs « service indisponible » | À faire, c'est du code et non une consigne |
-| Suggestions non vérifiables | Retirer le champ ou le borner à une liste | À discuter |
+1. Relancer les séries de robustesse en v2 (elles reprennent où elles se sont arrêtées) :
 
-Dis-moi si je les applique. L'agent ne sera figé, et le jeu de test jugeable, qu'après cette décision.
+```bash
+uv run oabench robustness ambiguous
+uv run oabench robustness offtopic
+uv run oabench robustness outage
+uv run oabench robustness injection
+```
+
+2. Décider d'une v3 : les deux cas d'ambiguïté passés en v2 échouent encore. La piste est de faire le tri (recherche, trop vague, hors sujet) dans l'étape de plan. Je te proposerai le changement avec sa mesure sur le jeu de développement.
+
+**Tant que je ne t'ai pas annoncé « agent figé » avec un identifiant de commit, ne juge pas le jeu de test.** Les tâches 1, 2 et 4 de ce document peuvent se faire dès maintenant.
 
 ## Ce qui ne dépend pas de toi
 
