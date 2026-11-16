@@ -103,13 +103,17 @@ split yet.
 | Portal search | 0.19 [0.00, 0.38] | 0.19 [0.00, 0.38] | 100% | 81% |
 | Portal search, keywords only | 0.19 [0.00, 0.38] | 0.19 [0.00, 0.38] | 83% | 81% |
 | Embeddings | 0.50 [0.25, 0.75] | 0.39 [0.19, 0.61] | 83% | 25% |
-| Hybrid (RRF) | 0.74 [0.54, 0.92] | 0.61 [0.40, 0.80] | not measured | not measured |
-| BM25 | 0.77 [0.58, 0.93] | 0.73 [0.55, 0.91] | 67% | 19% |
-| Agent (`gemini-3.5-flash-lite` over BM25) | 0.76 [0.60, 0.91] | 0.94 [0.81, 1.00] | 100% | 0% |
+| Hybrid (RRF) | 0.73 [0.53, 0.91] | 0.61 [0.40, 0.80] | not measured | not measured |
+| BM25 | 0.76 [0.57, 0.92] | 0.73 [0.55, 0.91] | 67% | 19% |
+| Agent (`gemini-3.5-flash-lite` over BM25) | 0.75 [0.59, 0.91] | 0.94 [0.81, 1.00] | 100% | 0% |
+| Agent (`gemini-3.5-flash-lite` over hybrid) | 0.67 [0.48, 0.87] | 0.88 [0.69, 1.00] | 83% | 6% |
+| Agent (`gemini-3.1-flash-lite` over BM25) | 0.67 [0.47, 0.86] | 0.91 [0.75, 1.00] | 83% | 6% |
 
-Agent: 77% of cited records relevant, none invented, 5.5 model calls and 3.8 tool calls per
+Main agent configuration (first agent row): 77% of cited records relevant, none invented, 5.5 model calls and 3.8 tool calls per
 question, 0.0052 USD per question at list price, latency 7.2 s median and 22.9 s at the 95th
-percentile (rate-limit waits excluded).
+percentile (rate-limit waits excluded; that 95th percentile may include pauses between retries
+after provider errors, a measurement flaw fixed since). No difference between the three agent
+configurations is conclusive on 16 questions.
 
 How to read it: the only conclusive difference in recall is the portal search against BM25
 (-0.58, interval [-0.80, -0.34]). The agent does not improve recall@5 over BM25, the engine it

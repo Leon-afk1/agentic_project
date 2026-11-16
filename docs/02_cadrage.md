@@ -453,6 +453,25 @@ Lecture honnête de ce tableau :
 - **Les seuils d'abstention des moteurs sont réglés et mesurés sur les mêmes questions** (il n'y a pas encore de jugements sur le test) : ces taux-là sont optimistes pour BM25 et les embeddings.
 - **16 et 6 questions** : les intervalles sont larges et rien ici n'est généralisable avant le jeu de test.
 
+**16/11/2026, comparaison de trois configurations de l'agent (jeu de développement, jugé par un modèle) :**
+
+| Configuration | Rappel@5 [IC 95 %] | MRR [IC 95 %] | Citations pertinentes | Abstention correcte (6) | Abstention à tort (16) | Coût par question | Latence médiane |
+|---|---|---|---|---|---|---|---|
+| `gemini-3.5-flash-lite` sur BM25 | 0,75 [0,59 ; 0,91] | 0,94 [0,81 ; 1,00] | 77 % | 100 % | 0 % | 0,0052 $ | 7,2 s |
+| `gemini-3.5-flash-lite` sur hybride | 0,67 [0,48 ; 0,87] | 0,88 [0,69 ; 1,00] | 63 % | 83 % | 6 % | 0,0058 $ | 7,2 s |
+| `gemini-3.1-flash-lite` sur BM25 | 0,67 [0,47 ; 0,86] | 0,91 [0,75 ; 1,00] | 79 % | 83 % | 6 % | 0,0034 $ | 19,0 s |
+
+Pour mémoire, BM25 seul sur les mêmes questions : rappel@5 0,76 [0,57 ; 0,92], MRR 0,73.
+
+- **Aucun écart entre configurations n'est concluant** à 16 questions. Écart apparié hybride moins BM25 pour l'agent : −0,09 [−0,28 ; +0,11] en rappel@5.
+- **Moteur hybride derrière l'agent** : pas de gain observé, et des citations moins précises. Hypothèse non vérifiée : l'hybride renvoie toujours ses plus proches voisins, ce qui pousse l'agent à citer des fiches approximatives. BM25 reste le moteur par défaut.
+- **Second modèle** : moins cher au tarif public, mais 2,6 fois plus lent en médiane ici, et il cite moins de fiches par question.
+- **Latences au 95ᵉ centile non fiables pour ces lots** : jusqu'à ce jour, les pauses entre deux tentatives après une erreur du fournisseur étaient comptées comme du temps de travail. C'est corrigé ; les médianes ne sont pas affectées, les 95ᵉ centiles publiés plus haut (22,9 s et 53,1 s) peuvent l'être.
+- **Fiches ajoutées après coup à la liste des candidats** : 7 au total (2 par l'agent sur BM25, 3 sur hybride, 2 par le second modèle), jugées par Claude **sans être à l'aveugle** du système qui les citait. Une d'elles (BD ORTHO Historique 1956-61) est notée pertinente et s'ajoute aux bonnes réponses d'une question, ce qui a fait bouger le rappel de tous les systèmes d'un centième.
+- **Pannes du fournisseur rencontrées en quatre lots** : erreurs 503 isolées et en série, puis une coupure de connexion. Le client réessaie maintenant trois fois sur les erreurs serveur et les coupures réseau, jamais sur une erreur de quota, et ne masque pas les autres exceptions.
+
+Options de l'outil de jugement ajoutées pour Léon : `--split dev|test` et `--review FICHIER` (relecture des notes d'un autre annotateur, non aveugle). Mode d'emploi complet : `docs/04_a_faire_leon.md`.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |
