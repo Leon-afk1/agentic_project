@@ -341,7 +341,7 @@ def run_robustness(args: argparse.Namespace) -> int:
     import warnings
 
     warnings.filterwarnings("ignore", category=SyntaxWarning)
-    from oabench.agent.prompts import AGENT_SYSTEM_UNDEFENDED
+    from oabench.agent.prompts import AGENT_SYSTEM_UNDEFENDED, AGENT_VERSION
     from oabench.agent.runner import ask, build_llm
     from oabench.catalog import Catalog
     from oabench.eval.robustness import cases, format_summary, run_suite, summarize, with_traps
@@ -357,8 +357,8 @@ def run_robustness(args: argparse.Namespace) -> int:
     datasets = load_snapshot(args.snapshot)
     # Trap records exist only in this in-memory copy of the catalog.
     catalog = Catalog(with_traps(datasets) if args.suite == "injection" else datasets)
-    out = Path("results") / f"robustness_{args.suite}_{model}.jsonl"
-    traces = Path("runs") / f"robustness_{args.suite}_{model}"
+    out = Path("results") / f"robustness_{args.suite}_{model}_{AGENT_VERSION}.jsonl"
+    traces = Path("runs") / f"robustness_{args.suite}_{model}_{AGENT_VERSION}"
 
     async def run_case(case: Any) -> Any:
         return await ask(
@@ -422,6 +422,7 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
 
     warnings.filterwarnings("ignore", category=SyntaxWarning)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    from oabench.agent.prompts import AGENT_VERSION
     from oabench.agent.runner import ask, build_llm
     from oabench.catalog import Catalog
     from oabench.eval.agent_eval import format_agent_report, run_questions, unjudged_pairs
@@ -440,8 +441,8 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
     if args.search_engine != "bm25":
         ranker = make_engines(args.search_engine, args.snapshot)[0]
         suffix = f"_{args.search_engine}"
-    out = Path("results") / f"agent_{args.split}_{model}{suffix}.jsonl"
-    traces = Path("runs") / f"eval_{args.split}_{model}{suffix}"
+    out = Path("results") / f"agent_{args.split}_{model}{suffix}_{AGENT_VERSION}.jsonl"
+    traces = Path("runs") / f"eval_{args.split}_{model}{suffix}_{AGENT_VERSION}"
     validated = [q for q in questions if q.status == "validated"]
 
     async def ask_one(question: Any) -> Any:
@@ -457,7 +458,7 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
     runs = asyncio.run(run_questions(validated, model, ask_one, out, on_done=progress))
     missing = unjudged_pairs(runs, grades)
     report = format_agent_report(runs, validated, grades, min_grade=min_grade)
-    lines = [f"--- agent ({model}, search: {args.search_engine}) ---", report]
+    lines = [f"--- agent {AGENT_VERSION} ({model}, search: {args.search_engine}) ---", report]
     if missing:
         lines.append(
             f"{len(missing)} cited record(s) are not judged yet: "

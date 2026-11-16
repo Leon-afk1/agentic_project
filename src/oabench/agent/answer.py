@@ -34,8 +34,9 @@ class Citation(BaseModel):
 
 
 class AgentAnswer(BaseModel):
-    status: Literal["answered", "abstained"]
+    status: Literal["answered", "abstained", "needs_clarification"]
     message: str
+    clarification_question: str = ""
     datasets: list[Citation] = Field(default_factory=list, max_length=MAX_DATASETS)
     suggestions: list[str] = Field(default_factory=list)
 
@@ -53,8 +54,11 @@ SUBMIT_ANSWER = ToolSpec(
         "properties": {
             "status": {
                 "type": "string",
-                "enum": ["answered", "abstained"],
-                "description": "'abstained' when no dataset reliably fits the request",
+                "enum": ["answered", "abstained", "needs_clarification"],
+                "description": (
+                    "'abstained' when no dataset reliably fits the request; "
+                    "'needs_clarification' when the request is too vague to choose without guessing"
+                ),
             },
             "message": {
                 "type": "string",
@@ -86,7 +90,14 @@ SUBMIT_ANSWER = ToolSpec(
             "suggestions": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "When abstaining: likely producer or other portal to try",
+                "description": (
+                    "When abstaining: a producer seen in your tool results, or data.gouv.fr. "
+                    "Never a name you did not see."
+                ),
+            },
+            "clarification_question": {
+                "type": "string",
+                "description": "With status needs_clarification: one precise question, in French",
             },
         },
         "required": ["status", "message"],

@@ -68,7 +68,7 @@ async def ask(
         async def run_tool(name: str, arguments: dict[str, Any]) -> ToolOutcome:
             if simulate_outage:
                 # Robustness test: the catalog answers nothing but errors.
-                return ToolOutcome({"error": OUTAGE_MESSAGE}, is_error=True)
+                return ToolOutcome({"error": OUTAGE_MESSAGE}, is_error=True, unavailable=True)
             result = await client.call_tool(name, arguments)
             text = "".join(getattr(block, "text", "") for block in result.content)
             if result.is_error:

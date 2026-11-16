@@ -19,13 +19,20 @@ from pydantic import ValidationError
 from oabench.agent.answer import SUBMIT_ANSWER, AgentAnswer
 from oabench.agent.prompts import AGENT_SYSTEM, FINAL_STEP, NUDGE, PLAN_SYSTEM
 from oabench.llm.types import LLMClient, LLMError, LLMResponse, Message, ToolCall, ToolSpec
+from oabench.retrieval.text import fold
 from oabench.tracing.tracer import Tracer
 
 NL = "\n"
+ALWAYS_ALLOWED = ("data.gouv.fr", "insee", "ign")  # portals a suggestion may always name
+OUTAGE_ANSWER = (
+    "Le catalogue est momentanément injoignable : je n'ai pas pu chercher de jeux de données. "
+    "Réessayez dans quelques minutes."
+)
 
 StopReason = Literal[
     "answered",
     "abstained",
+    "needs_clarification",
     "max_steps",
     "max_tool_calls",
     "token_budget",
@@ -44,12 +51,15 @@ class Limits:
     max_input_tokens: int = 30_000  # cumulated over the run
     timeout_s: float = 90.0  # working time; waiting for the rate limit is not counted
     max_identical_calls: int = 2  # the same tool call a third time stops the run
+    max_unavailable_errors: int = 2  # consecutive "service unavailable" tool results
 
 
 @dataclass
 class ToolOutcome:
     payload: dict[str, Any]
     is_error: bool = False
+    # The service behind the tool could not be reached (as opposed to a refused call).
+    unavailable: bool = False
 
 
 # How the loop reaches the tools. In production this is an MCP client session;
@@ -70,6 +80,7 @@ class AgentResult:
     cost_usd: float | None = None
     seconds: float = 0.0
     invented_citations: list[str] = field(default_factory=list)
+    removed_suggestions: list[str] = field(default_factory=list)
     seen_uuids: set[str] = field(default_factory=set)  # every id returned by a tool
 
     @property
@@ -109,6 +120,33 @@ def collect_uuids(payload: Any) -> set[str]:
     return found
 
 
+def collect_names(payload: Any) -> set[str]:
+    """Organisation names found in a tool result ("organizations" lists, "name" fields)."""
+    found: set[str] = set()
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "name" and isinstance(value, str):
+                found.add(value)
+            elif key == "organizations" and isinstance(value, list):
+                found |= {v for v in value if isinstance(v, str)}
+                found |= collect_names(value)
+            else:
+                found |= collect_names(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            found |= collect_names(item)
+    return found
+
+
+def is_grounded(suggestion: str, seen_names: set[str]) -> bool:
+    """A suggestion is kept when it names a producer seen in tool results, or a
+    portal of the short allow-list. Anything else is unverifiable free text."""
+    text = fold(suggestion)
+    if any(portal in text for portal in ALWAYS_ALLOWED):
+        return True
+    return any(len(name) >= 4 and fold(name) in text for name in seen_names)
+
+
 def summarize(name: str, payload: dict[str, Any]) -> str:
     """One line for the trace: what a tool result contained."""
     if "error" in payload:
@@ -138,6 +176,8 @@ async def run_agent(
     result = AgentResult(question=question, stop_reason="no_final_answer")
     started = clock()
     seen_uuids: set[str] = set()
+    seen_names: set[str] = set()
+    unavailable_streak = 0
     call_counts: Counter[str] = Counter()
 
     # The client's waiting time is cumulated over its whole life: only what was
@@ -196,6 +236,7 @@ async def run_agent(
             stop_reason=reason,
             answer=result.answer.model_dump() if result.answer else None,
             invented_citations=result.invented_citations,
+            removed_suggestions=result.removed_suggestions,
             steps=result.steps,
             tool_calls=result.tool_calls,
             cost_usd=result.cost_usd,
@@ -274,6 +315,12 @@ async def run_agent(
                 answer.datasets = kept
                 if answer.status == "answered" and not kept:
                     answer.status = "abstained"  # nothing verifiable is left to recommend
+                if answer.status == "needs_clarification":
+                    answer.datasets = []  # asking a question and recommending do not mix
+                # Same idea for suggestions: a producer or portal must have been seen.
+                grounded = [s for s in answer.suggestions if is_grounded(s, seen_names)]
+                result.removed_suggestions = [s for s in answer.suggestions if s not in grounded]
+                answer.suggestions = grounded
                 result.answer = answer
                 return finish(answer.status)
 
@@ -297,9 +344,11 @@ async def run_agent(
                         summary=f"{type(exc).__name__}: {exc}"[:200],
                         **{"gen_ai.tool.name": call.name},
                     )
+                    result.answer = AgentAnswer(status="abstained", message=OUTAGE_ANSWER)
                     return finish("tool_error")
                 result.tool_calls += 1
                 seen_uuids |= collect_uuids(outcome.payload)
+                seen_names |= collect_names(outcome.payload)
                 tracer.emit(
                     "tool_call",
                     arguments=call.arguments,
@@ -314,6 +363,12 @@ async def run_agent(
                         "tool", tool_name=call.name, tool_call_id=call.id, result=outcome.payload
                     )
                 )
+                # Insisting on an unreachable service only adds load and cost: stop, and
+                # say so with a fixed message rather than asking the model to improvise.
+                unavailable_streak = unavailable_streak + 1 if outcome.unavailable else 0
+                if unavailable_streak >= limits.max_unavailable_errors:
+                    result.answer = AgentAnswer(status="abstained", message=OUTAGE_ANSWER)
+                    return finish("tool_error")
     except LLMError as exc:
         tracer.emit("error", message=str(exc)[:300])
         return finish("llm_error")

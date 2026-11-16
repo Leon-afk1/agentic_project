@@ -78,6 +78,10 @@ def render_trace(events: list[dict[str, Any]]) -> str:
                 for dataset in answer.get("datasets", []):
                     lines.append(f"  - {dataset['uuid']}: {_short(dataset['reason'], 140)}")
                     lines.append(f"      checks: {dataset['checks']}")
+            if answer and answer.get("clarification_question"):
+                lines.append(f"ASKS      {_short(answer['clarification_question'], 300)}")
+            if event.get("removed_suggestions"):
+                lines.append(f"REMOVED   unverifiable suggestions: {event['removed_suggestions']}")
             if event.get("invented_citations"):
                 lines.append(f"REMOVED   invented citations: {event['invented_citations']}")
             cost = event.get("cost_usd")
