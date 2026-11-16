@@ -24,7 +24,13 @@ class ScriptedLLM:
         self._responses = list(responses)
         self.seen: list[list[Message]] = []
 
-    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
         self.seen.append(list(messages))
         return self._responses.pop(0)
 

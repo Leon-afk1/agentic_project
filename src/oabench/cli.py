@@ -347,6 +347,7 @@ def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_gr
     from oabench.tracing.tracer import Tracer
 
     load_env()
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     model = args.model or DEFAULT_MODEL
     llm = build_llm(require_key(), model, cache=Path(".cache/llm.sqlite"))
     catalog = Catalog(load_snapshot(args.snapshot))

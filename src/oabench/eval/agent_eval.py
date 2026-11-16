@@ -143,6 +143,17 @@ def format_agent_report(
     if yes_runs:
         share = sum(abstained(r) for r in yes_runs) / len(yes_runs)
         lines.append(f"wrongful abstention         : {share:.0%} of {len(yes_runs)}")
+    cited = [(run.question_id, uuid) for run in runs for uuid in run.ranking[:K]]
+    if cited:
+        graded = [qrels.get(q, {}).get(u) for q, u in cited]
+        known = [g for g in graded if g is not None]
+        if known:
+            exact = sum(g >= 2 for g in known) / len(known)
+            useful = sum(g >= 1 for g in known) / len(known)
+            lines.append(
+                f"precision of cited records  : {exact:.0%} relevant, {useful:.0%} at least "
+                f"partially relevant ({len(known)} judged citations)"
+            )
     if runs:
         costs = [r.cost_usd for r in runs if r.cost_usd is not None]
         seconds = [r.seconds for r in runs]

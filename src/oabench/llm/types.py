@@ -67,5 +67,11 @@ class LLMClient(Protocol):
     model: str
 
     def complete(
-        self, system: str, messages: list[Message], tools: list[ToolSpec]
-    ) -> LLMResponse: ...
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
+        """`force_tool`: name of a tool the model must call in this turn."""
+        ...

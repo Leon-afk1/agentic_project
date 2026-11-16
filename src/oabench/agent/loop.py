@@ -21,6 +21,8 @@ from oabench.agent.prompts import AGENT_SYSTEM, FINAL_STEP, NUDGE, PLAN_SYSTEM
 from oabench.llm.types import LLMClient, LLMError, LLMResponse, Message, ToolCall, ToolSpec
 from oabench.tracing.tracer import Tracer
 
+NL = "\n"
+
 StopReason = Literal[
     "answered",
     "abstained",
@@ -136,8 +138,13 @@ async def run_agent(
     seen_uuids: set[str] = set()
     call_counts: Counter[str] = Counter()
 
+    # The client's waiting time is cumulated over its whole life: only what was
+    # waited during this run may be subtracted.
+    waited_before_run = float(getattr(llm, "waited_s", 0.0))
+
     def working_time() -> float:
-        return clock() - started - float(getattr(llm, "waited_s", 0.0))
+        waited = float(getattr(llm, "waited_s", 0.0)) - waited_before_run
+        return clock() - started - waited
 
     def limit_reached() -> StopReason | None:
         if result.steps >= limits.max_steps:
@@ -148,9 +155,14 @@ async def run_agent(
             return "timeout"
         return None
 
-    def call_model(system: str, messages: list[Message], specs: list[ToolSpec]) -> LLMResponse:
+    def call_model(
+        system: str, messages: list[Message], specs: list[ToolSpec], force: str | None = None
+    ) -> LLMResponse:
         before, waited_before = clock(), float(getattr(llm, "waited_s", 0.0))
-        response = llm.complete(system, messages, specs)
+        if force is None:
+            response = llm.complete(system, messages, specs)
+        else:
+            response = llm.complete(system, messages, specs, force_tool=force)
         # Time spent waiting for the rate limit is not the model's latency.
         waited = float(getattr(llm, "waited_s", 0.0)) - waited_before
         duration_ms = round((clock() - before - waited) * 1000, 1)
@@ -220,9 +232,15 @@ async def run_agent(
             # end with a conclusion (possibly an abstention), not in mid-search.
             last_step = result.steps == limits.max_steps - 1
             if last_step:
-                response = call_model(AGENT_SYSTEM + FINAL_STEP, messages, [SUBMIT_ANSWER])
+                response = call_model(
+                    AGENT_SYSTEM + FINAL_STEP, messages, [SUBMIT_ANSWER], SUBMIT_ANSWER.name
+                )
             else:
-                response = call_model(AGENT_SYSTEM, messages, all_tools)
+                left = limits.max_steps - result.steps - 1
+                pacing = (
+                    f"{NL}Model calls left after this one: {left}. The last one must be the answer."
+                )
+                response = call_model(AGENT_SYSTEM + pacing, messages, all_tools)
             messages.append(response.as_message())
             submitted = any(c.name == SUBMIT_ANSWER.name for c in response.tool_calls)
             if last_step and not submitted:

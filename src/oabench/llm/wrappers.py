@@ -27,19 +27,32 @@ class ThrottledLLM:
         self._limiter = limiter
         self.waited_s = 0.0  # time spent waiting for the quota, not working
 
-    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
         self.waited_s += self._limiter.wait()
-        return self._inner.complete(system, messages, tools)
+        return self._inner.complete(system, messages, tools, force_tool)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)  # dump_raw / load_raw of the provider
 
 
-def request_key(model: str, system: str, messages: list[Message], tools: list[ToolSpec]) -> str:
+def request_key(
+    model: str,
+    system: str,
+    messages: list[Message],
+    tools: list[ToolSpec],
+    force_tool: str | None = None,
+) -> str:
     """Hash of everything that determines the answer (the opaque `raw` is left out)."""
     payload = {
         "model": model,
         "system": system,
+        "force_tool": force_tool,
         "tools": [asdict(tool) for tool in tools],
         "messages": [
             {
@@ -73,14 +86,20 @@ class CachedLLM:
     def waited_s(self) -> float:
         return float(getattr(self._inner, "waited_s", 0.0))
 
-    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
-        key = request_key(self.model, system, messages, tools)
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
+        key = request_key(self.model, system, messages, tools, force_tool)
         row = self._db.execute("SELECT body FROM llm_responses WHERE key = ?", (key,)).fetchone()
         if row is not None:
             self.hits += 1
             return self._decode(json.loads(row[0]))
         self.misses += 1
-        response = self._inner.complete(system, messages, tools)
+        response = self._inner.complete(system, messages, tools, force_tool)
         self._db.execute(
             "INSERT OR REPLACE INTO llm_responses (key, body) VALUES (?, ?)",
             (key, json.dumps(self._encode(response), ensure_ascii=False)),

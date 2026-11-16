@@ -125,6 +125,7 @@ def test_agent_report_scores_ranking_abstention_and_costs() -> None:
     assert "correct abstention          : 100% of 1" in report
     assert "wrongful abstention         : 50% of 2" in report
     assert "invented citations          : 1" in report
+    assert "precision of cited records  : 50% relevant, 50% at least" in report
     assert "'max_steps': 1" in report
 
 

@@ -6,11 +6,13 @@ own turns are replayed exactly as received.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from oabench.llm.types import LLMError, LLMResponse, Message, ToolCall, ToolSpec
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
+RETRY_DELAYS_S = (5.0, 20.0, 60.0)  # on 5xx answers only
 
 # Public list prices in USD per million tokens (input, output), read on
 # 15 Nov 2026. Used to report a theoretical cost even on the free tier.
@@ -98,12 +100,19 @@ class GeminiClient:
         self.model = model
         self._temperature = temperature
         self._client = genai.Client(api_key=api_key)
+        self._sleep = time.sleep
 
     # Used by the response cache to store and restore the model's own turn.
     dump_raw = staticmethod(_dump_raw)
     load_raw = staticmethod(_load_raw)
 
-    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
         from google.genai import errors, types
 
         declarations = [
@@ -118,15 +127,31 @@ class GeminiClient:
             tools=[types.Tool(function_declarations=declarations)] if declarations else None,
             # The agent loop runs the tools itself, so that every call is traced.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        )
-        try:
-            response = self._client.models.generate_content(
-                model=self.model, contents=to_contents(messages), config=config
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode=types.FunctionCallingConfigMode.ANY, allowed_function_names=[force_tool]
+                )
             )
-        except errors.APIError as exc:
-            # The SDK message holds the status and reason, never the key.
-            raise LLMError(f"{type(exc).__name__}: {exc}") from exc
-        return from_response(response)
+            if force_tool
+            else None,
+        )
+        contents = to_contents(messages)
+        for attempt in range(len(RETRY_DELAYS_S) + 1):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model, contents=contents, config=config
+                )
+                return from_response(response)
+            except errors.ServerError as exc:
+                # 5xx: the service is overloaded. Worth a few patient retries.
+                if attempt == len(RETRY_DELAYS_S):
+                    raise LLMError(f"{type(exc).__name__}: {exc}") from exc
+                self._sleep(RETRY_DELAYS_S[attempt])
+            except errors.APIError as exc:
+                # 4xx (quota, bad request): retrying would not help.
+                # The SDK message holds the status and reason, never the key.
+                raise LLMError(f"{type(exc).__name__}: {exc}") from exc
+        raise LLMError("unreachable")
 
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:

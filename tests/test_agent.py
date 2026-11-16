@@ -37,9 +37,17 @@ class ScriptedLLM:
         self._responses = list(responses)
         self._tokens = tokens
         self.calls: list[tuple[str, list[Message], list[ToolSpec]]] = []
+        self.forced: list[str | None] = []
 
-    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> LLMResponse:
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> LLMResponse:
         self.calls.append((system, list(messages), tools))
+        self.forced.append(force_tool)
         response = self._responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -290,3 +298,15 @@ def test_last_step_offers_only_the_final_answer_tool(catalog: Catalog) -> None:
     assert [t.name for t in tools] == [SUBMIT_ANSWER.name]
     assert "LAST STEP" in system
     assert "LAST STEP" not in llm.calls[2][0]
+    assert llm.forced == [None, None, None, SUBMIT_ANSWER.name]  # the final call is forced
+    assert "Model calls left after this one: 2" in llm.calls[1][0]
+    assert "Model calls left after this one: 1" in llm.calls[2][0]
+
+
+def test_working_time_ignores_waits_from_earlier_runs(catalog: Catalog) -> None:
+    class Waited(ScriptedLLM):
+        waited_s = 500.0  # accumulated while answering previous questions
+
+    llm = Waited(say(PLAN), say("", submit("abstained")))
+    result, _ = run(catalog, llm)
+    assert 0 <= result.seconds < 60
