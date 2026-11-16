@@ -77,6 +77,16 @@ uv run oabench eval --split dev
 - Fais des sessions d'une heure au plus. La fatigue rend les notes moins stables.
 - Si tu changes d'avis sur la grille en cours de route, note-le ici, dans la section ci-dessous, plutôt que de corriger en silence.
 
+## Jugements déjà faits par un modèle
+
+Les 22 questions de développement ont été jugées par Claude le 16/11/2026, dans `data/golden/judgments_llm_claude.jsonl`. L'outil ne te montre pas ces notes : tes jugements restent indépendants. Pour mesurer ton accord avec le modèle après avoir jugé une partie des mêmes candidats :
+
+```bash
+uv run oabench golden agreement judgments.jsonl judgments_llm_claude.jsonl
+```
+
+Une centaine de jugements suffit pour une première mesure. Sous un kappa de 0,6, les jugements du modèle ne doivent pas servir de référence.
+
 ## Limites connues, à écrire dans le README
 
 - **Un seul annotateur.** Parade prévue : réannoter 15 questions deux semaines plus tard et mesurer l'accord avec toi-même.
@@ -89,4 +99,6 @@ uv run oabench eval --split dev
 
 | Date | Cas | Règle retenue |
 |---|---|---|
-| | | |
+| 16/11/2026 | Bon sujet sur un territoire sans rapport avec celui demandé (les arbres de Mulhouse pour une question sur Strasbourg). Rencontré par Claude en jugeant le jeu de développement. | 0. La note 1 est réservée au territoire qui recouvre ou englobe celui demandé. À confirmer ou corriger par Léon. |
+| 16/11/2026 | Donnée régionale découpée en fiches départementales (réseau Fluo, occupation du sol) pour une question régionale. | Chaque fiche départementale reçoit 2 : c'est la bonne donnée, publiée en plusieurs morceaux. |
+| 16/11/2026 | Question en deux parties (lignes et gares ; surface et essences) et fiche qui ne répond qu'à une partie. | 2 si la fiche est la référence pour sa partie, sinon 1. |

@@ -425,6 +425,34 @@ Choix technique : SDK officiel `google-genai` derrière l'interface `LLMClient`,
 - **Écart de protocole à signaler** : une question du jeu de test (`n46`) a été essayée à la main avant que le garde-fou n'existe. Aucun réglage n'a été fait à partir d'elle. Depuis, `oabench ask` refuse les questions de test sauf option explicite.
 - **Modèle simulé** : il sert uniquement aux tests automatiques des garde-fous (la CI n'a pas de clé). Tous les essais et toutes les mesures utilisent le vrai modèle.
 
+**16/11/2026, jugements par un modèle et première évaluation sur le jeu de développement :**
+- **Jugements faits par Claude à la demande de Léon**, pour les 22 questions de développement seulement (358 couples question/fiche). Ils sont dans `data/golden/judgments_llm_claude.jsonl`, séparés de `judgments.jsonl` (réservé aux jugements humains, vide à ce jour). Chaque tableau indique le fichier utilisé. Conditions : mêmes informations que l'outil de jugement (titre, producteur, année, début de description), ordre mélangé, moteur d'origine non visible.
+- **Ce que cela change dans ce qu'on peut affirmer** : aucun chiffre actuel ne repose sur un jugement humain. Le critère du MVP « jeu de référence validé par Léon » est rempli pour les questions, pas pour les jugements de pertinence.
+- **Le jeu de test n'est pas jugé**, volontairement : celui qui règle l'agent ne doit pas lire les questions de test et leurs candidats. Il sera jugé une fois l'agent figé.
+- **Calibration prévue** : Léon juge un échantillon des mêmes candidats (son outil ne montre pas les notes du modèle) et `oabench golden agreement judgments.jsonl judgments_llm_claude.jsonl` donne l'accord brut et le kappa de Cohen pondéré. Règle inchangée : sous 0,6, les jugements du modèle ne servent pas de référence.
+- **Règle de jugement fixée en cours de route** : bon sujet sur un territoire sans rapport = 0 ; 1 seulement si le territoire recouvre ou englobe celui demandé. Portée au journal du guide.
+- **Limite de la mise en commun observée en vrai** : l'agent a cité, pour « mesures horaires de pollution de l'air à Strasbourg », la fiche `mes Grand Est horaire poll princ` (ATMO Grand Est), qu'aucun des quatre moteurs n'avait remontée dans ses 10 premiers. Jugée pertinente, elle fait passer la question de « sans réponse » à « avec réponse » et change le dénominateur de tous les systèmes (16 questions avec réponse et 6 sans, au lieu de 15 et 7). C'est exactement le biais annoncé en §3.2, et la preuve que les ajouts au fil de l'eau sont nécessaires.
+- **Trois défauts trouvés par l'évaluation et corrigés** : arrêt du lot sur une erreur 503 passagère (nouvelles tentatives sur les erreurs serveur uniquement) ; dernier appel utilisé pour chercher au lieu de répondre (réponse finale imposée par l'API, et nombre d'appels restants indiqué au modèle) ; durée calculée en retranchant l'attente de quota de tout le lot au lieu de celle de la question (corrigé ; ce défaut neutralisait aussi le garde-fou de délai).
+
+Résultats sur le jeu de développement (22 questions, jugées par un modèle, relevance stricte). **Provisoires et optimistes pour l'agent**, qui a été réglé sur ces mêmes questions :
+
+| Système | Rappel@5 [IC 95 %] | MRR [IC 95 %] | Abstention correcte (6) | Abstention à tort (16) |
+|---|---|---|---|---|
+| Recherche du portail | 0,19 [0,00 ; 0,38] | 0,19 [0,00 ; 0,38] | 100 % | 81 % |
+| Portail, mots-clés | 0,19 [0,00 ; 0,38] | 0,19 [0,00 ; 0,38] | 83 % | 81 % |
+| Embeddings | 0,50 [0,25 ; 0,75] | 0,39 [0,19 ; 0,61] | 83 % | 25 % |
+| Hybride (RRF) | 0,74 [0,54 ; 0,92] | 0,61 [0,40 ; 0,80] | non mesurée | non mesurée |
+| BM25 | 0,77 [0,58 ; 0,93] | 0,73 [0,55 ; 0,91] | 67 % | 19 % |
+| Agent (`gemini-3.5-flash-lite` sur BM25) | 0,76 [0,60 ; 0,91] | 0,94 [0,81 ; 1,00] | 100 % | 0 % |
+
+Agent : 77 % des fiches citées sont pertinentes et 100 % au moins partiellement ; aucune citation inventée ; 5,5 appels au modèle et 3,8 appels d'outils par question ; 0,0052 $ par question au tarif public ; latence 7,2 s en médiane et 22,9 s au 95ᵉ centile, attente du quota exclue. Fichiers : `results/dev_table_llm_judged.txt`, `results/agent_dev_gemini-3.5-flash-lite.jsonl`.
+
+Lecture honnête de ce tableau :
+- **Seul écart concluant** : la recherche du portail est sous BM25 (−0,58 de rappel@5, intervalle [−0,80 ; −0,34]). Tous les autres écarts de rappel ont un intervalle qui contient zéro.
+- **L'agent n'améliore pas le rappel@5** par rapport à BM25, qui est son propre moteur. Son apport visible est ailleurs : il met presque toujours un bon jeu en premier (MRR), ne cite presque que des fiches utiles, et sait dire qu'il n'y a rien. Le rappel@5 plafonné pénalise un système qui cite peu : pour une question à dix bonnes fiches, deux citations justes donnent 0,4.
+- **Les seuils d'abstention des moteurs sont réglés et mesurés sur les mêmes questions** (il n'y a pas encore de jugements sur le test) : ces taux-là sont optimistes pour BM25 et les embeddings.
+- **16 et 6 questions** : les intervalles sont larges et rien ici n'est généralisable avant le jeu de test.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |

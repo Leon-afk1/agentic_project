@@ -29,7 +29,7 @@ Work in progress. What exists today:
 | Engines: portal search (as typed, and keywords only), BM25, multilingual embeddings on CPU, hybrid (rank fusion) | done, not yet scored |
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs, abstention rates | code done; no judgment yet, so no result |
 | Agent: bounded tool-calling loop through the MCP server, JSONL traces | done; tried by hand on two dev questions, not yet evaluated |
-| Evaluation of the agent, comparison table | not started (waiting for relevance judgments) |
+| Evaluation of the agent, comparison table | first table on the 22 dev questions, judged by a language model (see below); test split not judged, not evaluated |
 
 No result is reported here yet because none has been measured.
 
@@ -90,6 +90,32 @@ size, stop reason, list-price cost). `results/traces/` holds one real example.
 
 Model: `gemini-3.5-flash-lite` on the free tier (15 requests per minute, 500 per day), behind a
 rate limiter and a response cache. `oabench ask` refuses questions of the frozen test split.
+
+## First results (provisional)
+
+Dev split only (22 questions: 16 with an answer, 6 without). Relevance was graded by a language
+model (Claude), not by a human: `data/golden/judgments_llm_claude.jsonl`. The agent was tuned on
+these same questions, so its numbers are optimistic. Nothing here has been measured on the test
+split yet.
+
+| System | Recall@5 [95% CI] | MRR [95% CI] | Correct abstention (6) | Wrongful abstention (16) |
+|---|---|---|---|---|
+| Portal search | 0.19 [0.00, 0.38] | 0.19 [0.00, 0.38] | 100% | 81% |
+| Portal search, keywords only | 0.19 [0.00, 0.38] | 0.19 [0.00, 0.38] | 83% | 81% |
+| Embeddings | 0.50 [0.25, 0.75] | 0.39 [0.19, 0.61] | 83% | 25% |
+| Hybrid (RRF) | 0.74 [0.54, 0.92] | 0.61 [0.40, 0.80] | not measured | not measured |
+| BM25 | 0.77 [0.58, 0.93] | 0.73 [0.55, 0.91] | 67% | 19% |
+| Agent (`gemini-3.5-flash-lite` over BM25) | 0.76 [0.60, 0.91] | 0.94 [0.81, 1.00] | 100% | 0% |
+
+Agent: 77% of cited records relevant, none invented, 5.5 model calls and 3.8 tool calls per
+question, 0.0052 USD per question at list price, latency 7.2 s median and 22.9 s at the 95th
+percentile (rate-limit waits excluded).
+
+How to read it: the only conclusive difference in recall is the portal search against BM25
+(-0.58, interval [-0.80, -0.34]). The agent does not improve recall@5 over BM25, the engine it
+searches with; what it adds is ranking a good dataset first, citing few useless records, and
+saying when the catalog has nothing. Abstention thresholds of BM25 and embeddings were tuned and
+measured on the same questions. With 16 and 6 questions, intervals are wide.
 
 ## Evaluation workflow
 
