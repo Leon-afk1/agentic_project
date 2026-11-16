@@ -310,3 +310,11 @@ def test_working_time_ignores_waits_from_earlier_runs(catalog: Catalog) -> None:
     llm = Waited(say(PLAN), say("", submit("abstained")))
     result, _ = run(catalog, llm)
     assert 0 <= result.seconds < 60
+
+
+def test_retry_pauses_of_the_provider_count_as_waiting_not_working() -> None:
+    inner = ScriptedLLM(say("a"))
+    inner.retry_waited_s = 25.0  # type: ignore[attr-defined]
+    throttled = ThrottledLLM(inner, RateLimiter(0.0))
+    throttled.complete("s", [], [])
+    assert throttled.waited_s == 25.0

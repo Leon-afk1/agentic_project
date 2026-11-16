@@ -24,6 +24,12 @@ PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 }
 
 
+def is_transport_error(exc: BaseException) -> bool:
+    """Network-level failures raised below the SDK (connection reset, timeout...)."""
+    module = type(exc).__module__.split(".")[0]
+    return isinstance(exc, OSError) or module in {"httpx", "httpx2", "httpcore", "h11", "anyio"}
+
+
 def to_contents(messages: list[Message]) -> list[Any]:
     """Translate our messages into SDK `Content` objects."""
     from google.genai import types
@@ -101,6 +107,7 @@ class GeminiClient:
         self._temperature = temperature
         self._client = genai.Client(api_key=api_key)
         self._sleep = time.sleep
+        self.retry_waited_s = 0.0  # time slept between retries: not the model's latency
 
     # Used by the response cache to store and restore the model's own turn.
     dump_raw = staticmethod(_dump_raw)
@@ -147,10 +154,20 @@ class GeminiClient:
                 if attempt == len(RETRY_DELAYS_S):
                     raise LLMError(f"{type(exc).__name__}: {exc}") from exc
                 self._sleep(RETRY_DELAYS_S[attempt])
+                self.retry_waited_s += RETRY_DELAYS_S[attempt]
             except errors.APIError as exc:
                 # 4xx (quota, bad request): retrying would not help.
                 # The SDK message holds the status and reason, never the key.
                 raise LLMError(f"{type(exc).__name__}: {exc}") from exc
+            except Exception as exc:
+                # A dropped connection is as transient as a 5xx. Anything else is a
+                # bug and must surface as it is.
+                if not is_transport_error(exc):
+                    raise
+                if attempt == len(RETRY_DELAYS_S):
+                    raise LLMError(f"{type(exc).__name__}: {exc}") from exc
+                self._sleep(RETRY_DELAYS_S[attempt])
+                self.retry_waited_s += RETRY_DELAYS_S[attempt]
         raise LLMError("unreachable")
 
 

@@ -179,3 +179,52 @@ def test_no_secret_is_tracked_by_git() -> None:
         text = path.read_text(encoding="utf-8", errors="ignore")
         for pattern in SECRET_PATTERNS:
             assert not pattern.search(text), f"possible secret in {name}"
+
+
+def test_transport_errors_are_told_apart_from_bugs() -> None:
+    import httpx
+
+    from oabench.llm.gemini import is_transport_error
+
+    assert is_transport_error(httpx.RemoteProtocolError("Server disconnected"))
+    assert is_transport_error(ConnectionResetError())
+    assert not is_transport_error(KeyError("bug"))
+    assert not is_transport_error(ValueError("bug"))
+
+
+def test_gemini_client_retries_a_dropped_connection_then_gives_up_cleanly() -> None:
+    pytest.importorskip("google.genai")
+    import httpx
+
+    from oabench.llm.gemini import RETRY_DELAYS_S, GeminiClient
+    from oabench.llm.types import LLMError
+
+    client = GeminiClient(FAKE_KEY)
+    sleeps: list[float] = []
+    client._sleep = sleeps.append
+    attempts = 0
+
+    def always_dropped(**_kwargs: Any) -> Any:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+
+    client._client.models.generate_content = always_dropped
+    with pytest.raises(LLMError, match="RemoteProtocolError"):
+        client.complete("system", [Message("user", text="hi")], [])
+    assert attempts == len(RETRY_DELAYS_S) + 1
+    assert sleeps == list(RETRY_DELAYS_S)
+
+
+def test_gemini_client_does_not_hide_a_programming_error() -> None:
+    pytest.importorskip("google.genai")
+    from oabench.llm.gemini import GeminiClient
+
+    client = GeminiClient(FAKE_KEY)
+
+    def broken(**_kwargs: Any) -> Any:
+        raise KeyError("a bug, not a network problem")
+
+    client._client.models.generate_content = broken
+    with pytest.raises(KeyError):
+        client.complete("system", [Message("user", text="hi")], [])

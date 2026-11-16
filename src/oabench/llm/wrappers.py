@@ -25,7 +25,7 @@ class ThrottledLLM:
         self.model = inner.model
         self._inner = inner
         self._limiter = limiter
-        self.waited_s = 0.0  # time spent waiting for the quota, not working
+        self._limiter_waited_s = 0.0
 
     def complete(
         self,
@@ -34,8 +34,14 @@ class ThrottledLLM:
         tools: list[ToolSpec],
         force_tool: str | None = None,
     ) -> LLMResponse:
-        self.waited_s += self._limiter.wait()
+        self._limiter_waited_s += self._limiter.wait()
         return self._inner.complete(system, messages, tools, force_tool)
+
+    @property
+    def waited_s(self) -> float:
+        """Time spent waiting rather than working: rate limit, plus the provider's
+        pauses between retries. Neither is the model's latency."""
+        return self._limiter_waited_s + float(getattr(self._inner, "retry_waited_s", 0.0))
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)  # dump_raw / load_raw of the provider
