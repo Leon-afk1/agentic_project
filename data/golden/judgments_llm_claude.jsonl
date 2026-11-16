@@ -356,3 +356,8 @@
 {"question_id": "n44", "uuid": "fr-120066022-jdd-79631790-92b5-4980-9cd4-379b80194204", "grade": 0}
 {"question_id": "m11", "uuid": "fr-120066022-jdd-d4f851e7-66ac-40f3-b7bf-b5a46d9d5f94", "grade": 1}
 {"question_id": "n26", "uuid": "atmograndest::mes-grand-est-horaire-poll-princ", "grade": 2}
+{"question_id": "m10", "uuid": "fr-120066022-jdd-dee0fe05-51e8-4a46-9b92-d224f244749e", "grade": 1}
+{"question_id": "n07", "uuid": "FR-226-700-011-201712011330", "grade": 1}
+{"question_id": "n18", "uuid": "insee_rp_logement.part_hlm", "grade": 1}
+{"question_id": "n27", "uuid": "FR-236700019-IGNF_BDORTHOHistor56_1-0-CIGAL", "grade": 2}
+{"question_id": "n36", "uuid": "enedis_consommation-electrique-par-secteur_dactivite_m2a", "grade": 1}
