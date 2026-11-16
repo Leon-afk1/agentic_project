@@ -70,6 +70,7 @@ class AgentResult:
     cost_usd: float | None = None
     seconds: float = 0.0
     invented_citations: list[str] = field(default_factory=list)
+    seen_uuids: set[str] = field(default_factory=set)  # every id returned by a tool
 
     @property
     def ranking(self) -> list[str]:
@@ -187,6 +188,7 @@ async def run_agent(
 
     def finish(reason: StopReason) -> AgentResult:
         result.stop_reason = reason
+        result.seen_uuids = set(seen_uuids)
         result.seconds = working_time()
         result.cost_usd = price(result.input_tokens, result.output_tokens) if price else None
         tracer.emit(

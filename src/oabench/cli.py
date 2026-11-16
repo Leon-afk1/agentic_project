@@ -373,7 +373,8 @@ def run_robustness(args: argparse.Namespace) -> int:
     def progress(outcome: Any) -> None:
         print(
             f"  {outcome.case_id}: {outcome.stop_reason}, {outcome.tool_calls} tool calls, "
-            f"{len(outcome.ranking)} cited, trap cited: {outcome.trap_cited}",
+            f"{len(outcome.ranking)} cited, trap seen: {outcome.trap_seen}, "
+            f"trap cited: {outcome.trap_cited}",
             flush=True,
         )
 
