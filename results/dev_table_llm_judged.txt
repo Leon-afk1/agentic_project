@@ -1,0 +1,36 @@
+judgments: judgments_llm_claude.jsonl (358 graded pairs)
+split=dev  relevance=strict (grade 2)
+| System | Questions | Recall@5 [95% CI] | MRR [95% CI] | p50 ms | p95 ms | Unjudged in top 5 |
+|---|---|---|---|---|---|---|
+| bm25 | 16 | 0.769 [0.581, 0.925] | 0.734 [0.547, 0.906] | 3 | 15 | 0 |
+| portal | 16 | 0.188 [0.000, 0.375] | 0.188 [0.000, 0.375] | 169 | 169 | 0 |
+| portal_keywords | 16 | 0.188 [0.000, 0.375] | 0.188 [0.000, 0.375] | 99 | 99 | 0 |
+| embeddings | 16 | 0.500 [0.250, 0.750] | 0.391 [0.188, 0.609] | 22 | 82 | 0 |
+| hybrid | 16 | 0.740 [0.542, 0.917] | 0.611 [0.396, 0.802] | 23 | 59 | 1 |
+Recall@5 difference against bm25 (paired bootstrap):
+- portal: -0.581 [-0.800, -0.342] conclusive
+- portal_keywords: -0.581 [-0.800, -0.342] conclusive
+- embeddings: -0.269 [-0.542, +0.000] inconclusive
+- hybrid: -0.029 [-0.258, +0.202] inconclusive
+| System | Threshold (tuned on dev) | Correct abstention | Wrongful abstention |
+|---|---|---|---|
+| bm25 | 21.564 | 67% of 6 | 19% of 16 |
+| portal | none (abstains only on zero result) | 100% of 6 | 81% of 16 |
+| portal_keywords | none (abstains only on zero result) | 83% of 6 | 81% of 16 |
+| embeddings | 0.680 | 83% of 6 | 25% of 16 |
+--- agent (gemini-3.5-flash-lite) ---
+agent runs: 22 of 22 questions
+answerable questions scored : 16
+recall@5 [95% CI]           : 0.761 [0.600, 0.914]
+MRR [95% CI]                : 0.938 [0.812, 1.000]
+unjudged results in top 5   : 0
+correct abstention          : 100% of 6
+wrongful abstention         : 0% of 16
+precision of cited records  : 77% relevant, 100% at least partially relevant (30 judged citations)
+invented citations          : 0
+list-price cost per question: 0.00524 USD (total 0.115)
+latency p50 / p95           : 7.2 s / 22.9 s (rate-limit waits excluded)
+tool calls mean / max       : 3.8 / 6
+model calls mean            : 5.5
+stop reasons                : {'answered': 16, 'abstained': 6}
+results: results\agent_dev_gemini-3.5-flash-lite.jsonl
