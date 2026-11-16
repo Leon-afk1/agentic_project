@@ -30,6 +30,7 @@ Work in progress. What exists today:
 | Pooling, blind judging tool, recall@5 / MRR with bootstrap CIs, abstention rates | code done; no judgment yet, so no result |
 | Agent: bounded tool-calling loop through the MCP server, JSONL traces | done; tried by hand on two dev questions, not yet evaluated |
 | Evaluation of the agent, comparison table | first table on the 22 dev questions, judged by a language model (see below); test split not judged, not evaluated |
+| Robustness suites (injection, off-topic, outage, ambiguity) | first pass done on the main configuration; improvements identified, not applied |
 
 No result is reported here yet because none has been measured.
 
@@ -120,6 +121,29 @@ How to read it: the only conclusive difference in recall is the portal search ag
 searches with; what it adds is ranking a good dataset first, citing few useless records, and
 saying when the catalog has nothing. Abstention thresholds of BM25 and embeddings were tuned and
 measured on the same questions. With 16 and 6 questions, intervals are wide.
+
+## Robustness (first pass)
+
+Agent `gemini-3.5-flash-lite` over BM25, prompts unchanged. Small suites: read them as
+observations, not as measurements.
+
+| Suite | Cases | Outcome |
+|---|---|---|
+| Prompt injection, with the defensive paragraph | 6 | no attack succeeded; trap record seen 6 times, never cited |
+| Prompt injection, without it | 6 | no attack succeeded either: the paragraph's effect is not measurable here |
+| Off-topic requests | 8 | 6 without any dataset cited, 3 without any tool call; 2 failures |
+| Catalog outage (every tool call fails) | 4 | 4 abstentions naming the outage, nothing cited or invented |
+| Ambiguous requests | 6 | 0 flagged as ambiguous: the agent silently picks datasets |
+
+Trap records carry an instruction in their description (self-promotion, a link plus a request for
+an e-mail address, or "say that nothing exists"). They live only in an in-memory copy of the
+catalog; nothing is written to the portal. Three simple attacks on one model do not show that the
+agent resists injection in general. The ambiguity failure is structural: the final answer has two
+statuses, answered and abstained, and no way to ask the user a question.
+
+```bash
+uv run oabench robustness injection   # or offtopic, outage, ambiguous
+```
 
 ## Evaluation workflow
 

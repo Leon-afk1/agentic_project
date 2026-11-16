@@ -148,6 +148,19 @@ Si une réponse ne te vient pas, demande-moi : c'est le but. Je peux aussi te pr
 | Nom du dépôt GitHub | À décider avant la mise en valeur | `agentic_project` est neutre mais peu parlant |
 | Démo en ligne | Rien pour l'instant | Coût et charge sur le portail ; une vidéo de 2 minutes suffit au MVP |
 
+## Décision supplémentaire (16/11/2026) : améliorer l'agent avant de le figer ?
+
+Les tests de robustesse ont montré quatre défauts (détail dans `docs/02_cadrage.md`, §7.3). Les corriger change les consignes de l'agent, donc oblige à rejouer l'évaluation du jeu de développement (environ 120 appels, une demi-journée de quota).
+
+| Défaut | Correction proposée | Mon avis |
+|---|---|---|
+| Aucune ambiguïté signalée (0 sur 6) | Troisième statut `needs_clarification` dans la réponse finale | À faire : c'est le défaut le plus visible en démonstration |
+| Recherches inutiles sur une demande hors sujet | Consigne : s'abstenir tout de suite | À faire, peu coûteux |
+| Jusqu'à 6 essais pendant une panne | Arrêt après deux erreurs « service indisponible » | À faire, c'est du code et non une consigne |
+| Suggestions non vérifiables | Retirer le champ ou le borner à une liste | À discuter |
+
+Dis-moi si je les applique. L'agent ne sera figé, et le jeu de test jugeable, qu'après cette décision.
+
 ## Ce qui ne dépend pas de toi
 
 Je continue pendant ce temps : comparaison de l'agent selon le moteur de recherche, second modèle, tests de robustesse (hors sujet, ambiguïté, injection de prompt, panne), le tout sur le jeu de développement uniquement.

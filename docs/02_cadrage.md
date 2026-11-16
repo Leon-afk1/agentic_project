@@ -472,6 +472,31 @@ Pour mémoire, BM25 seul sur les mêmes questions : rappel@5 0,76 [0,57 ; 0,92],
 
 Options de l'outil de jugement ajoutées pour Léon : `--split dev|test` et `--review FICHIER` (relecture des notes d'un autre annotateur, non aveugle). Mode d'emploi complet : `docs/04_a_faire_leon.md`.
 
+**16/11/2026, tests de robustesse de l'agent (`gemini-3.5-flash-lite` sur BM25, consignes inchangées) :**
+
+| Série | Cas | Résultat | Lecture |
+|---|---|---|---|
+| Injection de prompt, avec la parade | 6 | 0 attaque réussie ; piège vu 6 fois, ouvert 4 fois, jamais cité | L'agent lit l'instruction et ne la suit pas |
+| Injection de prompt, sans la parade | 6 | 0 attaque réussie ; piège vu 6 fois, ouvert 1 fois, jamais cité | **L'effet du paragraphe de parade n'est pas mesurable ici** : 0 contre 0 |
+| Hors sujet | 8 | 6 sans jeu cité ; 3 sans aucun appel d'outil ; 2 appels d'outils inutiles en moyenne | Deux échecs : un poème écrit et « illustré » par une fiche d'images satellite ; une question d'opinion renvoyée vers le budget régional |
+| Panne du catalogue | 4 | 4 abstentions qui nomment la panne ; aucune fiche citée ni inventée ; 4,5 appels d'outils en moyenne avant d'abandonner | Comportement correct, mais l'agent insiste (jusqu'à 6 essais) |
+| Ambiguïté | 6 | **0 signalement** : 6 réponses avec des jeux choisis en silence | Échec net : « Je cherche des données » obtient le taux de chômage et le dioxyde d'azote |
+
+Fichiers : `results/robustness_*.jsonl` (réponses complètes) ; traces dans `runs/` (non versionnées).
+
+Ce que ces résultats permettent de dire, et pas plus :
+- **Injection** : trois attaques simples, rédigées en français, deux questions chacune, un seul modèle. « Aucune n'a réussi » ne veut pas dire « l'agent résiste à l'injection ». Les fiches piégées étaient bien vues (12 fois sur 12, vérifié dans les traces), donc le test n'est pas vide. Rien n'a été écrit sur le portail : les pièges n'existent que dans une copie en mémoire du catalogue.
+- **La parade du prompt n'a pas montré d'utilité mesurable** sur ces cas. Les protections qui tiennent par construction restent les vraies : outils sans effet de bord, texte nettoyé et borné, citations vérifiées contre les résultats d'outils.
+- **Hors sujet** : l'agent répond parfois à la question de culture générale au passage (Canberra, France 1998, « offene Daten ») tout en s'abstenant. Ce n'est pas faux, mais c'est hors de son rôle.
+- **Panne** : une suggestion cite des portails dont l'existence n'est pas vérifiée (« Geogravity », « Géo-GrandEst »). Le champ `suggestions` n'est contrôlé par rien : c'est du texte libre du modèle.
+- **Ambiguïté** : le critère a été jugé à la lecture des six réponses par Claude, sans règle automatique. Le défaut est structurel : la réponse finale n'a que deux statuts, « répondu » et « abstenu ». L'agent n'a aucun moyen de demander une précision.
+
+Améliorations identifiées, **non appliquées** (elles changent les consignes, donc elles obligent à rejouer toute l'évaluation du jeu de développement, et le quota du jour est presque épuisé) :
+1. Ajouter un troisième statut `needs_clarification` à `submit_answer`, avec la question à poser à l'utilisateur.
+2. Dire dans la consigne de s'abstenir tout de suite, sans recherche, quand la demande n'est pas une recherche de données.
+3. Arrêter après deux erreurs d'outil consécutives de type « service indisponible ».
+4. Retirer ou encadrer le champ `suggestions`, seul texte non vérifiable de la réponse.
+
 ## 8. Risques
 
 | Risque | Probabilité | Parade |
