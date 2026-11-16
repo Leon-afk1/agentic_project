@@ -6,6 +6,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from oabench import __version__
 from oabench.portal.http import CachedClient, PortalError, RateLimiter, ResponseCache
@@ -56,6 +57,9 @@ def build_parser() -> argparse.ArgumentParser:
     pool.add_argument("--engines", default="bm25,portal,portal_keywords,embeddings")
     pool.add_argument("--depth", type=int, default=10)
     actions.add_parser("judge", help="grade pooled candidates one by one")
+    agreement = actions.add_parser("agreement", help="compare two judgment files (kappa)")
+    agreement.add_argument("first")
+    agreement.add_argument("second")
 
     ask = commands.add_parser("ask", help="ask the agent a question about the catalog")
     ask.add_argument("question")
@@ -84,6 +88,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--engines", default=",".join(ENGINE_NAMES))
     evaluate.add_argument("--split", choices=["dev", "test", "all"], default="dev")
     evaluate.add_argument("--lenient", action="store_true", help="count partially relevant too")
+    evaluate.add_argument(
+        "--judgments",
+        default="judgments.jsonl",
+        help="judgment file inside the golden directory (human by default)",
+    )
+    evaluate.add_argument("--agent", action="store_true", help="also run and score the agent")
+    evaluate.add_argument("--model", default=None, help="agent model")
     return parser
 
 
@@ -187,6 +198,14 @@ def run_golden(args: argparse.Namespace) -> int:
         print(f"added [{question.id}] {question.question}")
     elif args.action == "split":
         save_questions(args.file, assign_split(load_questions(args.file)))
+    elif args.action == "agreement":
+        from oabench.eval.agreement import compare, format_agreement
+        from oabench.eval.pool import load_judgments
+
+        folder = args.file.parent
+        result = compare(load_judgments(folder / args.first), load_judgments(folder / args.second))
+        print(format_agreement(result, args.first, args.second))
+        return 0
     elif args.action in ("pool", "judge"):
         from oabench.eval.pool import (
             JUDGMENTS_FILE,
@@ -312,16 +331,64 @@ def run_llm(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def run_agent_eval(args: argparse.Namespace, questions: Any, grades: Any, min_grade: int) -> str:
+    import asyncio
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    from oabench.agent.runner import ask, build_llm
+    from oabench.catalog import Catalog
+    from oabench.eval.agent_eval import format_agent_report, run_questions, unjudged_pairs
+    from oabench.llm.config import load_env, require_key
+    from oabench.llm.gemini import DEFAULT_MODEL
+    from oabench.snapshot.build import load_snapshot
+    from oabench.tracing.tracer import Tracer
+
+    load_env()
+    model = args.model or DEFAULT_MODEL
+    llm = build_llm(require_key(), model, cache=Path(".cache/llm.sqlite"))
+    catalog = Catalog(load_snapshot(args.snapshot))
+    out = Path("results") / f"agent_{args.split}_{model}.jsonl"
+    traces = Path("runs") / f"eval_{args.split}_{model}"
+    validated = [q for q in questions if q.status == "validated"]
+
+    async def ask_one(question: Any) -> Any:
+        return await ask(
+            question.question, llm, catalog, tracer=Tracer(traces / f"{question.id}.jsonl")
+        )
+
+    def progress(run: Any) -> None:
+        print(
+            f"  {run.question_id}: {run.stop_reason}, {run.steps} calls, {len(run.ranking)} cited",
+            flush=True,
+        )
+
+    runs = asyncio.run(run_questions(validated, model, ask_one, out, on_done=progress))
+    missing = unjudged_pairs(runs, grades)
+    report = format_agent_report(runs, validated, grades, min_grade=min_grade)
+    lines = [f"--- agent ({model}) ---", report]
+    if missing:
+        lines.append(
+            f"{len(missing)} cited record(s) are not judged yet: "
+            "scores are under-estimated until they are."
+        )
+    lines.append(f"results: {out}")
+    return chr(10).join(lines)
+
+
 def run_eval(args: argparse.Namespace) -> int:
     from oabench.eval.abstention import evaluate_abstention, format_abstention
     from oabench.eval.golden import QUESTIONS_FILE, load_questions
-    from oabench.eval.pool import JUDGMENTS_FILE, load_judgments, qrels
+    from oabench.eval.pool import load_judgments, qrels
     from oabench.eval.report import evaluate_engine, format_comparisons, format_table
 
     everything = load_questions(args.golden / QUESTIONS_FILE)
     dev = [q for q in everything if q.split == "dev"]
     questions = [q for q in everything if args.split == "all" or q.split == args.split]
-    grades = qrels(load_judgments(args.golden / JUDGMENTS_FILE))
+    grades = qrels(load_judgments(args.golden / args.judgments))
+    print(f"judgments: {args.judgments} ({sum(len(g) for g in grades.values())} graded pairs)")
     min_grade = 1 if args.lenient else 2
     engines = make_engines(args.engines, args.snapshot)
     reports = [evaluate_engine(e, questions, grades, min_grade=min_grade) for e in engines]
@@ -336,6 +403,8 @@ def run_eval(args: argparse.Namespace) -> int:
             [evaluate_abstention(e, dev, questions, grades, min_grade=min_grade) for e in scored]
         )
     )
+    if args.agent:
+        print(run_agent_eval(args, questions, grades, min_grade))
     return 0
 
 

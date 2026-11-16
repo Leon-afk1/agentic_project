@@ -108,9 +108,12 @@ def evaluate_abstention(
 ) -> AbstentionReport:
     """Tune the threshold on `dev`, report the two rates on `target`."""
     dev_yes, dev_no = split_by_answerability(dev, qrels, min_grade)
-    threshold = choose_threshold(
-        [top_score(engine, q) for q in dev_yes], [top_score(engine, q) for q in dev_no]
-    )
+    if getattr(engine, "abstains_only_when_empty", False):
+        threshold = -math.inf
+    else:
+        threshold = choose_threshold(
+            [top_score(engine, q) for q in dev_yes], [top_score(engine, q) for q in dev_no]
+        )
     yes, no = split_by_answerability(target, qrels, min_grade)
     correct, wrongful = rates(
         [top_score(engine, q) for q in yes], [top_score(engine, q) for q in no], threshold

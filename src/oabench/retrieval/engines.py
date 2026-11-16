@@ -121,6 +121,8 @@ class PortalEngine:
     """
 
     OVERFETCH = 3  # the portal also returns maps and services, which are filtered out
+    # The portal has no notion of confidence: it says "nothing" by returning nothing.
+    abstains_only_when_empty = True
 
     def __init__(
         self,
